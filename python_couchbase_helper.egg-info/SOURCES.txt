@@ -1,0 +1,13 @@
+LICENSE.rst
+README.rst
+pyproject.toml
+setup.cfg
+setup.py
+couchbase_helper/__init__.py
+couchbase_helper/couch.py
+python_couchbase_helper.egg-info/PKG-INFO
+python_couchbase_helper.egg-info/SOURCES.txt
+python_couchbase_helper.egg-info/dependency_links.txt
+python_couchbase_helper.egg-info/not-zip-safe
+python_couchbase_helper.egg-info/requires.txt
+python_couchbase_helper.egg-info/top_level.txt

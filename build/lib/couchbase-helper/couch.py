@@ -20,7 +20,7 @@ from couchbase.options import (
 )
 
 
-class Couch:
+class CouchbaseHelper:
     def __init__(
         self,
         hostname: str,
@@ -32,7 +32,7 @@ class Couch:
         timeout: int = 10,
         wan: bool = False,
         dryrun: bool = False,
-        logger: logging.Logger = None
+        logger: logging.Logger = None,
     ):
         if logger is None:
             logger = logging.getLogger()
@@ -117,12 +117,42 @@ class Couch:
         except DocumentExistsException:
             return False
 
-    def upsert_multi(self, documents: dict, expiry=None, opts: dict = None):
-        result = []
-        for key, document in documents.items():
-            result.append(self.upsert(key, document, expiry, opts))
+    def upsert_multi(
+        self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
+    ):
+        if per_key_opts is not None:
+            if opts is None:
+                opts = {}
 
-        return all(result)
+            for key, val in per_key_opts.items():
+                per_key_opts[key] = self._build_opts("upsert", opts=val)
+
+            opts["per_key_options"] = per_key_opts
+
+        args = {
+            "keys_and_docs": documents,
+            "opts": self._build_opts("upsert_multi", opts=opts, expiry=expiry),
+        }
+        try:
+            if not self._dryrun:
+                result = self.coll.upsert_multi(**args)
+                if result.all_ok:
+                    return True
+
+                for key, exception in result.exceptions.items():
+                    self.logger.error("unable to add document %s: %s", key, exception)
+            else:
+                self.logger.info(
+                    "### DRYRUN: would upsert keys %s ###",
+                    ", ".join(list(documents.keys())),
+                )
+                self._save_dryrun_outputs(**args)
+        except Exception as _err:
+            self.logger.error(
+                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+            )
+
+        return False
 
     def get(self, key: str, opts: dict = None):
         args = {"key": key, "opts": self._build_opts("get", opts=opts)}
@@ -206,11 +236,6 @@ class Couch:
 
         return None
 
-    def _upsert_multi_with_opts(self, documents: dict, opts: dict):
-        self.logger.debug("... saving batch of %s documents", len(documents))
-        args = {"keys_and_docs": documents, "opts": opts}
-        return self.coll.upsert_multi(**args)
-
     def _build_opts(self, type_: str, *, opts: dict = None, expiry: int = None) -> dict:
         """
         generate options object for specified action type
@@ -246,7 +271,9 @@ class Couch:
         if opts is None:
             opts = {}
 
-        opts["timeout"] = timedelta(seconds=self._timeout)
+        if "timeout" not in opts:
+            opts["timeout"] = timedelta(seconds=self._timeout)
+
         ret = base_options(**opts)
 
         if ret is None:
@@ -289,3 +316,10 @@ class Couch:
                 type(_err).__name__,
                 _err.args[0],
             )
+
+    def _save_dryrun_outputs(self, keys_and_docs: dict, opts: dict):
+        """save multiple files locally instead of to couchbase as part of a dry run"""
+        for key, value in keys_and_docs.items():
+            if "per_key_options" in opts and opts["per_key_options"] is not None:
+                opts["per_key_options"] = opts["per_key_options"].get(key, None)
+            self._save_dryrun_output(key, value, opts)

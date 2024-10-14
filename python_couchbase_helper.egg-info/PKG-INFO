@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: python-couchbase-helper
+Version: 0.0.3b0
+Summary: Simple Couchbase helper for Python 3.7+ adding basic functionality.
+Home-page: https://github.com/sitzz/python-couchbase-helper
+Author: Thomas 'sitzz' Vang
+Author-email: sitzzdk@gmail.com
+License: WTFPL v2
+Keywords: falcon,api,sqlalchemy,mvc
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: License :: WTFPL
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+License-File: LICENSE.rst
+Requires-Dist: couchbase>=4.0.0
