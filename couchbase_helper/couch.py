@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta
 import json
 import logging
+from typing import Any, Dict, List
 
 from couchbase.auth import PasswordAuthenticator
 from couchbase.cluster import Cluster
 from couchbase.exceptions import DocumentExistsException, DocumentNotFoundException
+from couchbase.n1ql import N1QLQuery, QueryScanConsistency
 from couchbase.options import (
     ClusterOptions,
     ClusterTimeoutOptions,
@@ -12,15 +14,17 @@ from couchbase.options import (
     InsertOptions,
     GetMultiOptions,
     GetOptions,
+    QueryOptions,
     RemoveMultiOptions,
     RemoveOptions,
     UpsertMultiOptions,
     UpsertOptions,
     ViewOptions,
 )
+from couchbase.result import QueryResult
 
 
-class Couch:
+class CouchbaseHelper:
     def __init__(
         self,
         hostname: str,
@@ -32,7 +36,8 @@ class Couch:
         timeout: int = 10,
         wan: bool = False,
         dryrun: bool = False,
-        logger: logging.Logger = None
+        output_folder: str = "output",
+        logger: logging.Logger = None,
     ):
         if logger is None:
             logger = logging.getLogger()
@@ -63,13 +68,14 @@ class Couch:
         # Initiate cluster and set bucket
         connection_string = f"couchbase{'s' if tls else ''}://{hostname}"
         self.logger.debug("- Connecting to cluster: %s", connection_string)
-        cluster = Cluster(
+        self.cluster = Cluster(
             connection_string,
             options,
         )
         self.logger.debug("- Setting bucket: %s", bucket)
-        cluster.wait_until_ready(timedelta(seconds=self._timeout))
-        self.bucket = cluster.bucket(bucket)
+        self.cluster.wait_until_ready(timedelta(seconds=self._timeout))
+        self.bucket = self.cluster.bucket(bucket)
+        self.bucket_name = bucket
 
         # Set some operation options
         # ... maybe later?
@@ -82,6 +88,7 @@ class Couch:
         self._dryrun = dryrun
         if self._dryrun:
             self.logger.info("### RUNNING COUCHBASE CLASS IN DRY RUN MODE ###")
+        self.output_folder = output_folder
 
     def insert(self, key: str, value, expiry=None, opts: dict = None):
         args = {
@@ -114,15 +121,45 @@ class Couch:
                 self.logger.info("### DRYRUN: would upsert key %s ###", key)
                 self._save_dryrun_output(**args)
                 return True
-        except DocumentExistsException:
+        except DocumentNotFoundException:
             return False
 
-    def upsert_multi(self, documents: dict, expiry=None, opts: dict = None):
-        result = []
-        for key, document in documents.items():
-            result.append(self.upsert(key, document, expiry, opts))
+    def upsert_multi(
+        self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
+    ):
+        if per_key_opts is not None:
+            if opts is None:
+                opts = {}
 
-        return all(result)
+            for key, val in per_key_opts.items():
+                per_key_opts[key] = self._build_opts("upsert", opts=val)
+
+            opts["per_key_options"] = per_key_opts
+
+        args = {
+            "keys_and_docs": documents,
+            "opts": self._build_opts("upsert_multi", opts=opts, expiry=expiry),
+        }
+        try:
+            if not self._dryrun:
+                result = self.coll.upsert_multi(**args)
+                if result.all_ok:
+                    return True
+
+                for key, exception in result.exceptions.items():
+                    self.logger.error("unable to add document %s: %s", key, exception)
+            else:
+                self.logger.info(
+                    "### DRYRUN: would upsert keys %s ###",
+                    ", ".join(list(documents.keys())),
+                )
+                self._save_dryrun_outputs(**args)
+        except Exception as _err:
+            self.logger.error(
+                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+            )
+
+        return False
 
     def get(self, key: str, opts: dict = None):
         args = {"key": key, "opts": self._build_opts("get", opts=opts)}
@@ -132,14 +169,14 @@ class Couch:
         except DocumentNotFoundException:
             return None
 
-    def get_multi(self, keys: list, opts: dict = None):
+    def get_multi(self, keys: list, opts: dict = None, *, raw: bool = False):
         args = {"keys": keys, "opts": self._build_opts("get", opts=opts)}
 
         try:
             ret = []
             documents = self.coll.get_multi(**args).results
             for _, document in documents.items():
-                ret.append(document.content_as[dict])
+                ret.append(document.content_as[dict] if not raw else document)
 
             return ret
         except DocumentNotFoundException:
@@ -177,7 +214,7 @@ class Couch:
         limit: int | None = None,
         skip: int | None = None,
         opts: dict | None = None,
-    ):
+    ) -> list[dict] | None:
         if opts is None:
             opts = {}
         if limit is not None:
@@ -206,10 +243,36 @@ class Couch:
 
         return None
 
-    def _upsert_multi_with_opts(self, documents: dict, opts: dict):
-        self.logger.debug("... saving batch of %s documents", len(documents))
-        args = {"keys_and_docs": documents, "opts": opts}
-        return self.coll.upsert_multi(**args)
+    def n1ql(self, select: str = "*", where: Dict[str, Any] | None = None, *,
+             opts: Dict[str, Any] | None = None) -> QueryResult | None:
+        """
+        generate and execute an N1QL query
+        :param select: str
+        the columns to select, defaults to "*" (all)
+        :param where: Dict[str, Any]
+        A key-value dictionary for the select statement
+        :param opts: optional Dict[str, Any]
+        any custom options to use for the query operation
+        :return: List[Dict[Any, Any]] | None
+        """
+        if opts is None:
+            opts = {}
+
+        where_statement = ""
+        for col, _ in where.items():
+            if len(where_statement) > 0:
+                where_statement += " AND "
+            where_statement += f"{col}=${col}"
+
+        try:
+            query = N1QLQuery(f"SELECT {select} FROM `{self.bucket_name}` WHERE {where_statement}")
+            query.consistency = QueryScanConsistency.REQUEST_PLUS
+            query.timeout = 2
+            return self.cluster.query(query.statement, **self._build_opts("query", opts=opts), **where).rows()
+        except Exception as _err:
+            self.logger.error("an error occurred when performing N1QL query (%s): %s", type(_err).__name__, _err.args[0])
+
+        return None
 
     def _build_opts(self, type_: str, *, opts: dict = None, expiry: int = None) -> dict:
         """
@@ -234,6 +297,8 @@ class Couch:
             base_options = GetOptions
         elif type_ == "get_multi":
             base_options = GetMultiOptions
+        elif type_ == "query":
+            base_options = QueryOptions
         elif type_ == "remove":
             base_options = RemoveOptions
         elif type_ == "remove_multi":
@@ -246,7 +311,9 @@ class Couch:
         if opts is None:
             opts = {}
 
-        opts["timeout"] = timedelta(seconds=self._timeout)
+        if "timeout" not in opts:
+            opts["timeout"] = timedelta(seconds=self._timeout)
+
         ret = base_options(**opts)
 
         if ret is None:
@@ -268,7 +335,7 @@ class Couch:
     def _save_dryrun_output(self, key: str, value, opts: dict):
         """save a file locally instead of to couchbase as part of a dry run"""
         try:
-            with open(f"output/{key}.json", "w") as file:
+            with open(f"{self.output_folder}/{key}.json", "w") as file:
                 contents = {
                     "key": key,
                     "value": value,
@@ -285,7 +352,14 @@ class Couch:
         except Exception as _err:
             self.logger.error(
                 "unable to save dry run file %s due to %s: %s",
-                f"{key}.json",
+                f"{self.output_folder}/{key}.json",
                 type(_err).__name__,
                 _err.args[0],
             )
+
+    def _save_dryrun_outputs(self, keys_and_docs: dict, opts: dict):
+        """save multiple files locally instead of to couchbase as part of a dry run"""
+        for key, value in keys_and_docs.items():
+            if "per_key_options" in opts and opts["per_key_options"] is not None:
+                opts["per_key_options"] = opts["per_key_options"].get(key, None)
+            self._save_dryrun_output(key, value, opts)
