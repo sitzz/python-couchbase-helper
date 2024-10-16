@@ -161,11 +161,12 @@ class CouchbaseHelper:
 
         return False
 
-    def get(self, key: str, opts: dict = None):
+    def get(self, key: str, opts: dict = None, *, raw: bool = False):
         args = {"key": key, "opts": self._build_opts("get", opts=opts)}
 
         try:
-            return self.coll.get(**args).content_as[dict]
+            document = self.coll.get(**args)
+            return document if raw else document.content_as[dict]
         except DocumentNotFoundException:
             return None
 
@@ -176,7 +177,7 @@ class CouchbaseHelper:
             ret = []
             documents = self.coll.get_multi(**args).results
             for _, document in documents.items():
-                ret.append(document.content_as[dict] if not raw else document)
+                ret.append(document if raw else document.content_as[dict])
 
             return ret
         except DocumentNotFoundException:
