@@ -113,6 +113,47 @@ class CouchbaseHelper:
         except DocumentExistsException:
             return False
 
+    def insert_multi(
+            self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
+    ):
+        if opts is None:
+            opts = {}
+
+        if per_key_opts is not None:
+            for key, val in per_key_opts.items():
+                per_key_opts[key] = self._build_opts("upsert", opts=val)
+
+            opts["per_key_options"] = per_key_opts
+
+        args = {
+            "keys_and_docs": documents,
+            "opts": self._build_opts("insert_multi", opts=opts, expiry=expiry),
+        }
+        try:
+            if not self._dryrun:
+                self.cluster.wait_until_ready(
+                    timedelta(self._timeout),
+                    WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+                )
+                result = self.coll.insert_multi(**args)
+                if result.all_ok:
+                    return True
+
+                for key, exception in result.exceptions.items():
+                    self.logger.error("unable to add document %s: %s", key, exception)
+            else:
+                self.logger.info(
+                    "### DRYRUN: would upsert keys %s ###",
+                    ", ".join(list(documents.keys())),
+                )
+                self._save_dryrun_outputs(**args)
+        except Exception as _err:
+            self.logger.error(
+                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+            )
+
+        return False
+
     def upsert(self, key: str, value, expiry=None, opts: dict = None):
         args = {
             "key": key,
@@ -137,10 +178,10 @@ class CouchbaseHelper:
     def upsert_multi(
         self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
     ):
-        if per_key_opts is not None:
-            if opts is None:
-                opts = {}
+        if opts is None:
+            opts = {}
 
+        if per_key_opts is not None:
             for key, val in per_key_opts.items():
                 per_key_opts[key] = self._build_opts("upsert", opts=val)
 
