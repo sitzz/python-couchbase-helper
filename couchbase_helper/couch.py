@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from couchbase.auth import PasswordAuthenticator
 from couchbase.cluster import Cluster
@@ -101,8 +101,10 @@ class CouchbaseHelper:
 
         try:
             if not self._dryrun:
-                self.cluster.wait_until_ready(timedelta(self._timeout),
-                                              WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]))
+                self.cluster.wait_until_ready(
+                    timedelta(self._timeout),
+                    WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+                )
                 return self.coll.insert(**args)
             else:
                 self.logger.info("### DRYRUN: would insert key %s ###", key)
@@ -120,8 +122,10 @@ class CouchbaseHelper:
 
         try:
             if not self._dryrun:
-                self.cluster.wait_until_ready(timedelta(self._timeout),
-                                              WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]))
+                self.cluster.wait_until_ready(
+                    timedelta(self._timeout),
+                    WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+                )
                 return self.coll.upsert(**args)
             else:
                 self.logger.info("### DRYRUN: would upsert key %s ###", key)
@@ -148,8 +152,10 @@ class CouchbaseHelper:
         }
         try:
             if not self._dryrun:
-                self.cluster.wait_until_ready(timedelta(self._timeout),
-                                              WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]))
+                self.cluster.wait_until_ready(
+                    timedelta(self._timeout),
+                    WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+                )
                 result = self.coll.upsert_multi(**args)
                 if result.all_ok:
                     return True
@@ -173,8 +179,10 @@ class CouchbaseHelper:
         args = {"key": key, "opts": self._build_opts("get", opts=opts)}
 
         try:
-            self.cluster.wait_until_ready(timedelta(self._timeout),
-                                          WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]))
+            self.cluster.wait_until_ready(
+                timedelta(self._timeout),
+                WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+            )
             document = self.coll.get(**args)
             return document if raw else document.content_as[dict]
         except DocumentNotFoundException:
@@ -185,8 +193,10 @@ class CouchbaseHelper:
 
         try:
             ret = []
-            self.cluster.wait_until_ready(timedelta(self._timeout),
-                                          WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]))
+            self.cluster.wait_until_ready(
+                timedelta(self._timeout),
+                WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+            )
             documents = self.coll.get_multi(**args).results
             for _, document in documents.items():
                 ret.append(document if raw else document.content_as[dict])
@@ -199,8 +209,10 @@ class CouchbaseHelper:
         args = {"key": key, "opts": self._build_opts("remove", opts=opts)}
 
         if not self._dryrun:
-            self.cluster.wait_until_ready(timedelta(self._timeout),
-                                          WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]))
+            self.cluster.wait_until_ready(
+                timedelta(self._timeout),
+                WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+            )
             return self.coll.remove(**args)
         else:
             self.logger.info("### DRYRUN: would delete key %s ###", key)
@@ -210,8 +222,10 @@ class CouchbaseHelper:
         args = {"keys": keys, "opts": self._build_opts("remove", opts=opts)}
 
         if not self._dryrun:
-            self.cluster.wait_until_ready(timedelta(self._timeout),
-                                          WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]))
+            self.cluster.wait_until_ready(
+                timedelta(self._timeout),
+                WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+            )
             return self.coll.remove_multi(**args)
         else:
             self.logger.info("### DRYRUN: would delete keys %s ###", ", ".join(keys))
@@ -241,8 +255,10 @@ class CouchbaseHelper:
 
         total_rows = 0
         try:
-            self.cluster.wait_until_ready(timedelta(self._timeout),
-                                          WaitUntilReadyOptions(service_types=[ServiceType.View]))
+            self.cluster.wait_until_ready(
+                timedelta(self._timeout),
+                WaitUntilReadyOptions(service_types=[ServiceType.View]),
+            )
             query = self.bucket.view_query(
                 design_doc=design_doc,
                 view_name=view_name,
@@ -262,8 +278,13 @@ class CouchbaseHelper:
 
         return None
 
-    def n1ql(self, select: str = "*", where: Dict[str, Any] | None = None, *,
-             opts: Dict[str, Any] | None = None) -> QueryResult | None:
+    def n1ql(
+        self,
+        select: str = "*",
+        where: Dict[str, Any] | None = None,
+        *,
+        opts: Dict[str, Any] | None = None,
+    ) -> QueryResult | None:
         """
         generate and execute an N1QL query
         :param select: str
@@ -284,14 +305,24 @@ class CouchbaseHelper:
             where_statement += f"{col}=${col}"
 
         try:
-            self.cluster.wait_until_ready(timedelta(self._timeout),
-                                          WaitUntilReadyOptions(service_types=[ServiceType.Query]))
-            query = N1QLQuery(f"SELECT {select} FROM `{self.bucket_name}` WHERE {where_statement}")
+            self.cluster.wait_until_ready(
+                timedelta(self._timeout),
+                WaitUntilReadyOptions(service_types=[ServiceType.Query]),
+            )
+            query = N1QLQuery(
+                f"SELECT {select} FROM `{self.bucket_name}` WHERE {where_statement}"
+            )
             query.consistency = QueryScanConsistency.REQUEST_PLUS
             query.timeout = 2
-            return self.cluster.query(query.statement, **self._build_opts("query", opts=opts), **where).rows()
+            return self.cluster.query(
+                query.statement, **self._build_opts("query", opts=opts), **where
+            ).rows()
         except Exception as _err:
-            self.logger.error("an error occurred when performing N1QL query (%s): %s", type(_err).__name__, _err.args[0])
+            self.logger.error(
+                "an error occurred when performing N1QL query (%s): %s",
+                type(_err).__name__,
+                _err.args[0],
+            )
 
         return None
 
