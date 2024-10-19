@@ -121,7 +121,7 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = self._build_opts("upsert", opts=val)
+                per_key_opts[key] = self._build_opts("insert", opts=val)
 
             opts["per_key_options"] = per_key_opts
 
@@ -143,7 +143,7 @@ class CouchbaseHelper:
                     self.logger.error("unable to add document %s: %s", key, exception)
             else:
                 self.logger.info(
-                    "### DRYRUN: would upsert keys %s ###",
+                    "### DRYRUN: would insert keys %s ###",
                     ", ".join(list(documents.keys())),
                 )
                 self._save_dryrun_outputs(**args)
