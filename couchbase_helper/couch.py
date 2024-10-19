@@ -114,7 +114,7 @@ class CouchbaseHelper:
             return False
 
     def insert_multi(
-            self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
+        self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
     ):
         if opts is None:
             opts = {}
