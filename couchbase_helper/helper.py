@@ -1,6 +1,6 @@
 from datetime import timedelta
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Union
 
 from couchbase.diagnostics import ServiceType
 from couchbase.exceptions import DocumentExistsException, DocumentNotFoundException
@@ -30,8 +30,6 @@ class CouchbaseHelper:
     Args:
         session (implements :class:`~couchbase_helper.protocols.SessionProt`):
             The cluster connection session
-
-    Optional args:
         logger (:class:`logging.logger`):
             The logging instance to use for log message. Defaults to the root logger.
     """
@@ -39,7 +37,7 @@ class CouchbaseHelper:
     def __init__(
         self,
         session: SessionProt,
-        logger: logging.Logger | None = None,
+        logger: Optional[logging.Logger] = None,
     ):
         if logger is None:
             logger = logging.getLogger()
@@ -54,8 +52,8 @@ class CouchbaseHelper:
         self,
         key: str,
         value: JSONType,
-        expiry: int | timedelta | None = None,
-        opts: Dict[str, Any] | None = None,
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Insert a single document. Will fail if document already exists.
 
@@ -92,9 +90,9 @@ class CouchbaseHelper:
     def insert_multi(
         self,
         documents: Dict[str, JSONType],
-        expiry: int | timedelta | None = None,
-        opts: Dict[str, Any] | None = None,
-        per_key_opts: Dict[str, InsertOptions] | None = None,
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
+        per_key_opts: Optional[Dict[str, InsertOptions]] = None,
     ):
         """Insert multiple documents, for each key-value pair in the `documents` dictionary
         a document will be created.
@@ -149,8 +147,8 @@ class CouchbaseHelper:
         self,
         key: str,
         value: JSONType,
-        expiry: int | timedelta | None = None,
-        opts: Dict[str, Any] | None = None,
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
     ):
         """Update or insert a single document.
 
@@ -186,9 +184,9 @@ class CouchbaseHelper:
     def upsert_multi(
         self,
         documents: Dict[str, JSONType],
-        expiry: int | timedelta | None = None,
-        opts: Dict[str, Any] | None = None,
-        per_key_opts: Dict[str, UpsertOptions] = None,
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
+        per_key_opts: Optional[Dict[str, UpsertOptions]] = None,
     ) -> bool:
         """Update or insert multiple documents, for each key-value pair in the
         `documents` dictionary a document will be updated or created.
@@ -240,8 +238,8 @@ class CouchbaseHelper:
         return False
 
     def get(
-        self, key: str, opts: Dict[str, Any] | None = None, *, raw: bool = False
-    ) -> GetResult | Dict[Any, Any] | None:
+        self, key: str, opts: Optional[Dict[str, Any]] = None, *, raw: bool = False
+    ) -> Optional[GetResult, Dict[Any, Any]]:
         """Get a single document
 
         Args:
@@ -269,8 +267,12 @@ class CouchbaseHelper:
             return None
 
     def get_multi(
-        self, keys: List[str], opts: Dict[str, Any] | None = None, *, raw: bool = False
-    ) -> MultiGetResult | List[Dict[Any, Any]] | None:
+        self,
+        keys: List[str],
+        opts: Optional[Dict[str, Any]] = None,
+        *,
+        raw: bool = False,
+    ) -> Optional[MultiGetResult, List[Dict[Any, Any]]]:
         """Get multiple document
 
         Args:
@@ -301,7 +303,7 @@ class CouchbaseHelper:
         except DocumentNotFoundException:
             return None
 
-    def remove(self, key: str, opts: Dict[str, Any] | None = None) -> bool:
+    def remove(self, key: str, opts: Optional[Dict[str, Any]] = None) -> bool:
         """Remove a single key
 
         Args:
@@ -326,7 +328,9 @@ class CouchbaseHelper:
         except DocumentNotFoundException:
             return False
 
-    def remove_multi(self, keys: List[str], opts: dict = None) -> bool:
+    def remove_multi(
+        self, keys: List[str], opts: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """Remove multiple keys
 
         Args:
@@ -373,10 +377,10 @@ class CouchbaseHelper:
         design_doc: str,
         view_name: str,
         *,
-        limit: int | None = None,
-        skip: int | None = None,
-        opts: dict | None = None,
-    ) -> list[dict] | None:
+        limit: Optional[int] = None,
+        skip: Optional[int] = None,
+        opts: Optional[Dict[str, Any]] = None,
+    ) -> Optional[List[Dict[Any, Any]]]:
         # TODO: method needs to be redone.
         if opts is None:
             opts = {}
@@ -413,10 +417,10 @@ class CouchbaseHelper:
     def n1ql(
         self,
         select: str = "*",
-        where: Dict[str, Any] | None = None,
+        where: Optional[Dict[str, Any]] = None,
         *,
-        opts: Dict[str, Any] | None = None,
-    ) -> QueryResult | None:
+        opts: Optional[Dict[str, Any]] = None,
+    ) -> Optional[QueryResult]:
         # TODO: method needs to be redone.
         """
         generate and execute an N1QL query
@@ -463,9 +467,20 @@ class CouchbaseHelper:
         self,
         type_: str,
         *,
-        opts: Dict[str, Any] | None = None,
-        expiry: int | timedelta | None = None,
-    ) -> Dict[str, Any]:
+        opts: Optional[Dict[str, Any]] = None,
+        expiry: Optional[int, timedelta] = None,
+    ) -> Union[
+        InsertOptions,
+        InsertMultiOptions,
+        UpsertOptions,
+        UpsertMultiOptions,
+        GetOptions,
+        GetMultiOptions,
+        QueryOptions,
+        RemoveOptions,
+        RemoveMultiOptions,
+        ViewOptions,
+    ]:
         """Generates operation options for specified operation type.
 
         Args:
