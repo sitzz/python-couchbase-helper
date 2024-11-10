@@ -162,6 +162,9 @@ class Session(SessionProt):
         Returns:
             bool: Whether connected to cluster or not.
         """
+        if self._cluster is None:
+            return False
+
         return self._cluster.connected
 
     @property
