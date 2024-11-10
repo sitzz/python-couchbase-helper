@@ -52,7 +52,7 @@ class CouchbaseHelper:
         self,
         key: str,
         value: JSONType,
-        expiry: Optional[int, timedelta] = None,
+        expiry: Optional[Union[int, timedelta]] = None,
         opts: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Insert a single document. Will fail if document already exists.
@@ -90,7 +90,7 @@ class CouchbaseHelper:
     def insert_multi(
         self,
         documents: Dict[str, JSONType],
-        expiry: Optional[int, timedelta] = None,
+        expiry: Optional[Union[int, timedelta]] = None,
         opts: Optional[Dict[str, Any]] = None,
         per_key_opts: Optional[Dict[str, InsertOptions]] = None,
     ):
@@ -147,7 +147,7 @@ class CouchbaseHelper:
         self,
         key: str,
         value: JSONType,
-        expiry: Optional[int, timedelta] = None,
+        expiry: Optional[Union[int, timedelta]] = None,
         opts: Optional[Dict[str, Any]] = None,
     ):
         """Update or insert a single document.
@@ -177,14 +177,15 @@ class CouchbaseHelper:
                 timedelta(self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            return self.session.collection.upsert(**args)
+            self.session.collection.upsert(**args)
+            return True
         except DocumentNotFoundException:
             return False
 
     def upsert_multi(
         self,
         documents: Dict[str, JSONType],
-        expiry: Optional[int, timedelta] = None,
+        expiry: Optional[Union[int, timedelta]] = None,
         opts: Optional[Dict[str, Any]] = None,
         per_key_opts: Optional[Dict[str, UpsertOptions]] = None,
     ) -> bool:
@@ -239,7 +240,7 @@ class CouchbaseHelper:
 
     def get(
         self, key: str, opts: Optional[Dict[str, Any]] = None, *, raw: bool = False
-    ) -> Optional[GetResult, Dict[Any, Any]]:
+    ) -> Optional[Union[GetResult, Dict[Any, Any]]]:
         """Get a single document
 
         Args:
@@ -272,7 +273,7 @@ class CouchbaseHelper:
         opts: Optional[Dict[str, Any]] = None,
         *,
         raw: bool = False,
-    ) -> Optional[MultiGetResult, List[Dict[Any, Any]]]:
+    ) -> Optional[Union[MultiGetResult, List[Dict[Any, Any]]]]:
         """Get multiple document
 
         Args:
@@ -326,7 +327,9 @@ class CouchbaseHelper:
             self.session.collection.remove(**args)
             return True
         except DocumentNotFoundException:
-            return False
+            pass
+
+        return False
 
     def remove_multi(
         self, keys: List[str], opts: Optional[Dict[str, Any]] = None
@@ -362,7 +365,7 @@ class CouchbaseHelper:
                 "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
             )
 
-            return False
+        return False
 
     def delete(self, *args, **kwargs):
         """Alias for :class:`self.remove`"""
@@ -468,7 +471,7 @@ class CouchbaseHelper:
         type_: str,
         *,
         opts: Optional[Dict[str, Any]] = None,
-        expiry: Optional[int, timedelta] = None,
+        expiry: Optional[Union[int, timedelta]] = None,
     ) -> Union[
         InsertOptions,
         InsertMultiOptions,
