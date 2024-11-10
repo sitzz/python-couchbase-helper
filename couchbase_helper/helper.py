@@ -1,6 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Union
 
 from couchbase.diagnostics import ServiceType
 from couchbase.exceptions import DocumentExistsException, DocumentNotFoundException
@@ -18,16 +18,26 @@ from couchbase.options import (
     ViewOptions,
     WaitUntilReadyOptions,
 )
-from couchbase.result import QueryResult
+from couchbase.result import QueryResult, GetResult, MultiGetResult
 
 from .protocols import SessionProt
+from ._types import JSONType
 
 
 class CouchbaseHelper:
+    """A couchbase helper class to simplify document operations
+
+    Args:
+        session (implements :class:`~couchbase_helper.protocols.SessionProt`):
+            The cluster connection session
+        logger (:class:`logging.logger`):
+            The logging instance to use for log message. Defaults to the root logger.
+    """
+
     def __init__(
         self,
         session: SessionProt,
-        logger: logging.Logger = None,
+        logger: Optional[logging.Logger] = None,
     ):
         if logger is None:
             logger = logging.getLogger()
@@ -38,7 +48,29 @@ class CouchbaseHelper:
         if not self.session.connected:
             self.session.connect()
 
-    def insert(self, key: str, value, expiry=None, opts: dict = None):
+    def insert(
+        self,
+        key: str,
+        value: JSONType,
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Insert a single document. Will fail if document already exists.
+
+        Args:
+            key (str):
+                The key of the document to save.
+            value (`~couchbase_helper._types.JSONType`):
+                The value of the document to save.
+            expiry (int | `:class:`datetime.timedelta`):
+                The expiry of the document to save.
+            opts (Dict[str, Any]):
+                The operation options to use when saving document.
+
+        Returns:
+            (bool):
+                The status of the insert operation.
+        """
         args = {
             "key": key,
             "value": value,
@@ -50,13 +82,36 @@ class CouchbaseHelper:
                 timedelta(self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            return self.session.collection.insert(**args)
+            self.session.collection.insert(**args)
+            return True
         except DocumentExistsException:
             return False
 
     def insert_multi(
-        self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
+        self,
+        documents: Dict[str, JSONType],
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
+        per_key_opts: Optional[Dict[str, InsertOptions]] = None,
     ):
+        """Insert multiple documents, for each key-value pair in the `documents` dictionary
+        a document will be created.
+
+        Args:
+            documents (Dict[str, JSONType]):
+                A dictionary of the documents to be saved.
+            expiry (int | `:class:`datetime.timedelta`):
+                The expiry of the documents to save.
+            opts (Dict[str, Any]):
+                The operation options to use when saving document.
+            per_key_opts (Dict[str, :class:`couchbase.options.InsertOptions`]):
+                A dictionary of :class:`couchbase.options.InsertOptions` per document key.
+
+        Returns:
+            (bool):
+                The status of the insert operations. Will return `True` if all operations
+                were successful, `False` otherwise.
+        """
         if opts is None:
             opts = {}
 
@@ -88,7 +143,29 @@ class CouchbaseHelper:
 
         return False
 
-    def upsert(self, key: str, value, expiry=None, opts: dict = None):
+    def upsert(
+        self,
+        key: str,
+        value: JSONType,
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
+    ):
+        """Update or insert a single document.
+
+        Args:
+            key (str):
+                The key of the document to save.
+            value (`~couchbase_helper._types.JSONType`):
+                The value of the document to save.
+            expiry (int | `:class:`datetime.timedelta`):
+                The expiry of the document to save.
+            opts (Dict[str, Any]):
+                The operation options to use when saving document.
+
+        Returns:
+            (bool):
+                The status of the insert operation.
+        """
         args = {
             "key": key,
             "value": value,
@@ -105,8 +182,30 @@ class CouchbaseHelper:
             return False
 
     def upsert_multi(
-        self, documents: dict, expiry=None, opts: dict = None, per_key_opts: dict = None
-    ):
+        self,
+        documents: Dict[str, JSONType],
+        expiry: Optional[int, timedelta] = None,
+        opts: Optional[Dict[str, Any]] = None,
+        per_key_opts: Optional[Dict[str, UpsertOptions]] = None,
+    ) -> bool:
+        """Update or insert multiple documents, for each key-value pair in the
+        `documents` dictionary a document will be updated or created.
+
+        Args:
+            documents (Dict[str, JSONType]):
+                A dictionary of the documents to be saved.
+            expiry (int | `:class:`datetime.timedelta`):
+                The expiry of the documents to save.
+            opts (Dict[str, Any]):
+                The operation options to use when saving document.
+            per_key_opts (Dict[str, :class:`couchbase.options.UpsertOptions`]):
+                A dictionary of :class:`couchbase.options.UpsertOptions` per document key.
+
+        Returns:
+            (bool):
+                The status of the upsert operations. Will return `True` if all operations
+                were successful, `False` otherwise.
+        """
         if opts is None:
             opts = {}
 
@@ -138,7 +237,23 @@ class CouchbaseHelper:
 
         return False
 
-    def get(self, key: str, opts: dict = None, *, raw: bool = False):
+    def get(
+        self, key: str, opts: Optional[Dict[str, Any]] = None, *, raw: bool = False
+    ) -> Optional[GetResult, Dict[Any, Any]]:
+        """Get a single document
+
+        Args:
+            key (str):
+                The key of the document to fetch.
+            opts (Dict[str, Any]):
+                The operation options to use when fetching the document.
+            raw (bool):
+                Whether to return the raw Couchbase response. Will return only the value
+                as a dictionary otherwise.
+
+        Returns:
+            :class:`couchbase.result.GetResult` | Dict[Any, Any] | None
+        """
         args = {"key": key, "opts": self._build_opts("get", opts=opts)}
 
         try:
@@ -151,7 +266,27 @@ class CouchbaseHelper:
         except DocumentNotFoundException:
             return None
 
-    def get_multi(self, keys: list, opts: dict = None, *, raw: bool = False):
+    def get_multi(
+        self,
+        keys: List[str],
+        opts: Optional[Dict[str, Any]] = None,
+        *,
+        raw: bool = False,
+    ) -> Optional[MultiGetResult, List[Dict[Any, Any]]]:
+        """Get multiple document
+
+        Args:
+            keys (List[str]):
+                The key of the document to fetch.
+            opts (Dict[str, Any]):
+                The operation options to use when fetching the documents.
+            raw (bool):
+                Whether to return the raw Couchbase responses. Will return only the values
+                as a dictionaries otherwise.
+
+        Returns:
+            :class:`couchbase.result.MultiGetResult` | List[Dict[Any, Any]] | None
+        """
         args = {"keys": keys, "opts": self._build_opts("get", opts=opts)}
 
         try:
@@ -168,28 +303,73 @@ class CouchbaseHelper:
         except DocumentNotFoundException:
             return None
 
-    def remove(self, key: str, opts: dict = None):
+    def remove(self, key: str, opts: Optional[Dict[str, Any]] = None) -> bool:
+        """Remove a single key
+
+        Args:
+            key (str):
+                The key of the document to remove.
+            opts (Dict[str, Any]):
+                The operation options to use when removing the document.
+
+        Returns:
+            (bool):
+                The status of the remove operation.
+        """
         args = {"key": key, "opts": self._build_opts("remove", opts=opts)}
 
         self.session.cluster.wait_until_ready(
             timedelta(self.session.timeout.kv),
             WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
         )
-        return self.session.collection.remove(**args)
+        try:
+            self.session.collection.remove(**args)
+            return True
+        except DocumentNotFoundException:
+            return False
 
-    def remove_multi(self, keys: list, opts: dict = None):
+    def remove_multi(
+        self, keys: List[str], opts: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Remove multiple keys
+
+        Args:
+            keys (List[str]):
+                The keys of the documents to remove.
+            opts (Dict[str, Any]):
+                The operation options to use when removing the documents.
+
+        Returns:
+            (bool):
+                The status of the remove operations.
+        """
         args = {"keys": keys, "opts": self._build_opts("remove", opts=opts)}
 
         self.session.cluster.wait_until_ready(
             timedelta(self.session.timeout.kv),
             WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
         )
-        return self.session.collection.remove_multi(**args)
+        try:
+            result = self.session.collection.remove_multi(**args)
+
+            if result.all_ok:
+                return True
+
+            for key, exception in result.exceptions.items():
+                self.logger.error("unable to remove document %s: %s", key, exception)
+        except Exception as _err:
+            self.logger.error(
+                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+            )
+
+            return False
 
     def delete(self, *args, **kwargs):
+        """Alias for :class:`self.remove`"""
         return self.remove(*args, **kwargs)
 
     def delete_multi(self, *args, **kwargs):
+        """Alias for :class:`self.remove_multi`"""
         return self.remove_multi(*args, **kwargs)
 
     def view_query(
@@ -197,10 +377,11 @@ class CouchbaseHelper:
         design_doc: str,
         view_name: str,
         *,
-        limit: int | None = None,
-        skip: int | None = None,
-        opts: dict | None = None,
-    ) -> list[dict] | None:
+        limit: Optional[int] = None,
+        skip: Optional[int] = None,
+        opts: Optional[Dict[str, Any]] = None,
+    ) -> Optional[List[Dict[Any, Any]]]:
+        # TODO: method needs to be redone.
         if opts is None:
             opts = {}
         if limit is not None:
@@ -236,10 +417,11 @@ class CouchbaseHelper:
     def n1ql(
         self,
         select: str = "*",
-        where: Dict[str, Any] | None = None,
+        where: Optional[Dict[str, Any]] = None,
         *,
-        opts: Dict[str, Any] | None = None,
-    ) -> QueryResult | None:
+        opts: Optional[Dict[str, Any]] = None,
+    ) -> Optional[QueryResult]:
+        # TODO: method needs to be redone.
         """
         generate and execute an N1QL query
         :param select: str
@@ -281,16 +463,36 @@ class CouchbaseHelper:
 
         return None
 
-    def _build_opts(self, type_: str, *, opts: dict = None, expiry: int = None) -> dict:
-        """
-        generate options object for specified action type
-        :param type_: str
-        can be one of 'insert', 'insert_multi', 'upsert', 'upsert_multi', 'get', 'get_multi', 'remove', 'remove_multi', and 'view'
-        :param opts: dict
-        a dict of applicable options for the operation being made
-        :param expiry: int
-        amount of seconds a document is valid (only for insert operations)
-        :return: dict
+    def _build_opts(
+        self,
+        type_: str,
+        *,
+        opts: Optional[Dict[str, Any]] = None,
+        expiry: Optional[int, timedelta] = None,
+    ) -> Union[
+        InsertOptions,
+        InsertMultiOptions,
+        UpsertOptions,
+        UpsertMultiOptions,
+        GetOptions,
+        GetMultiOptions,
+        QueryOptions,
+        RemoveOptions,
+        RemoveMultiOptions,
+        ViewOptions,
+    ]:
+        """Generates operation options for specified operation type.
+
+        Args:
+            type_ (str):
+                The type of operation to return options for.
+            opts (Dict[str, Any]):
+                Initial options to use for initiating the operation options instance.
+            expiry (int | timedelta | None):
+                Any general document expiry to use for the operations.
+
+        Returns:
+            Dict[str, Any]
         """
         if opts is None:
             opts = {}
@@ -332,11 +534,3 @@ class CouchbaseHelper:
             ret["expiry"] = timedelta(seconds=expiry)
 
         return ret
-
-    @staticmethod
-    def datetime_handler(x):
-        if isinstance(x, datetime):
-            return x.isoformat()
-        if isinstance(x, timedelta):
-            return x.seconds
-        raise TypeError("Unknown type")
