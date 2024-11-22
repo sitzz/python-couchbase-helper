@@ -1,6 +1,6 @@
 from datetime import timedelta
 import logging
-from typing import Tuple
+from typing import Optional, Tuple, Union
 
 from couchbase.auth import PasswordAuthenticator
 from couchbase.bucket import Bucket
@@ -62,11 +62,11 @@ class Session(SessionProt):
         username: str,
         password: str,
         *,
-        bucket: str | None = None,
+        bucket: Optional[str] = None,
         scope: str = "_default",
         collection: str = "_default",
         tls: bool = False,
-        timeout: Timeout | Tuple[int, int, int] | int | None = None,
+        timeout: Optional[Union[Timeout, Tuple[int, int, int], int]] = None,
         wan: bool = False,
         logger: logging.Logger = None,
     ):
@@ -291,7 +291,7 @@ class Session(SessionProt):
         return True
 
     @property
-    def timeout(self, attr: str | None = None) -> Timeout | int | None:
+    def timeout(self, attr: Optional[str] = None) -> Optional[Union[Timeout, int]]:
         """Returns the timeout configuration
 
         Args:
