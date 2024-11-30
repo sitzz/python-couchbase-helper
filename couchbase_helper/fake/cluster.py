@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from time import sleep, time
 from random import randint
 
@@ -7,6 +7,7 @@ from couchbase.logic.cluster import ClusterLogic
 from couchbase.serializer import DefaultJsonSerializer
 from couchbase.transcoder import JSONTranscoder
 
+from couchbase_helper.fake._datetime_hack import utcnow
 from couchbase_helper.fake.bucket import Bucket
 
 
@@ -34,7 +35,7 @@ class Cluster(ClusterLogic):
 
     @staticmethod
     def wait_until_ready(timeout: timedelta, *opts, **kwargs):
-        cutoff = (datetime.utcnow() + timeout).timestamp()
+        cutoff = (utcnow() + timeout).timestamp()
         wait = randint(1, 50) / 130
         if time() + wait < cutoff:
             sleep(wait)

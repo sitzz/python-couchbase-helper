@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from time import time_ns
 
 from couchbase.collection import GetOptions, TouchOptions
@@ -11,6 +11,7 @@ from couchbase.result import (
     MutationResult,
 )
 
+from couchbase_helper.fake._datetime_hack import utcnow
 from couchbase_helper.fake.store import Store
 
 
@@ -199,7 +200,7 @@ class Collection(CollectionLogic):
         if expiry_delta is not None:
             if isinstance(expiry_delta, int):
                 expiry_delta = timedelta(seconds=expiry_delta)
-            dt_exp = datetime.utcnow() + expiry_delta
+            dt_exp = utcnow() + expiry_delta
             return dt_exp.timestamp()
 
         return 0
