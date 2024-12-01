@@ -6,10 +6,6 @@ from couchbase_helper import Timeout
 
 from .couchbase_session import session
 
-HOSTNAME = "localhost"
-USERNAME = "test"
-PASSWORD = "testtest"
-
 
 @pytest.mark.order(1)
 def test_init():
