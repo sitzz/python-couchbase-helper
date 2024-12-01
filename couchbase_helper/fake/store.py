@@ -1,4 +1,4 @@
-from time import time
+from time import time, time_ns
 
 from couchbase.exceptions import (
     DocumentExistsException,
@@ -80,7 +80,12 @@ class Store:
             if 0 < document["locked"] < time():
                 raise DocumentLockedException
 
-            return document["value"]
+            return {
+                "cas": int(time_ns()),
+                "key": key,
+                "flags": 33554438,
+                "value": document["value"],
+            }
         except KeyError:
             raise DocumentNotFoundException
 
