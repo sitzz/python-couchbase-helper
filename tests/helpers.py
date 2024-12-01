@@ -11,10 +11,10 @@ def get_item(append: str = None) -> Tuple[str, Dict[str, Any]]:
     return key, document
 
 
-def get_items(items: int = 10) -> List[Tuple[str, Dict[str, Any]]]:
+def get_items(items: int = 10, append: str = None) -> List[Tuple[str, Dict[str, Any]]]:
     ret = []
     for i in range(0, items):
-        key = f"insert-multi-test-key-{i}"
+        key = f"insert-multi-test-key{'-'+append if append is not None else ''}-{i}"
         document = {
             "foo": "bar",
             "lorem": "ipsum dolor sit amet",
