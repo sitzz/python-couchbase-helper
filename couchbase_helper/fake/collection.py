@@ -7,6 +7,7 @@ from couchbase.pycbc_core import result
 from couchbase.result import (
     ExistsResult,
     GetResult,
+    MultiGetResult,
     MultiMutationResult,
     MutationResult,
 )
@@ -27,6 +28,19 @@ class Collection(CollectionLogic):
         res = result()
         res.raw_result = self._store.get(self._collection_name, key)
         return GetResult(res)
+
+    def get_multi(self, keys, *opts, **kwargs):
+        return_exceptions = self._get_kwarg("return_exceptions", kwargs, True)
+        res = result()
+        docs = {}
+        for key in keys:
+            tmp_res = result()
+            tmp_res.raw_result = self._store.get(self._collection_name, key)
+            docs[key] = tmp_res
+            del tmp_res
+
+        res.raw_result = docs
+        return MultiGetResult(res, return_exceptions=return_exceptions)
 
     def exists(self, key, *opts, **kwargs):
         res = result()
