@@ -36,7 +36,7 @@ class Cluster(ClusterLogic):
     @staticmethod
     def wait_until_ready(timeout: timedelta, *opts, **kwargs):
         cutoff = (utcnow() + timeout).timestamp()
-        wait = randint(1, 50) / 130
+        wait = 1 / randint(100, 500)
         if time() + wait < cutoff:
             sleep(wait)
             return
