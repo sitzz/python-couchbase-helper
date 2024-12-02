@@ -406,7 +406,7 @@ class CouchbaseHelper:
             query_metadata = query.metadata()
             if query_metadata is not None:
                 total_rows = query_metadata.total_rows()
-            if query_metadata is None or total_rows < skip:
+            if query_metadata is None or (skip is not None and total_rows < skip):
                 return query.rows()
         except Exception as _exc:
             self.logger.error(
@@ -438,11 +438,12 @@ class CouchbaseHelper:
         if opts is None:
             opts = {}
 
-        where_statement = ""
-        for col, _ in where.items():
-            if len(where_statement) > 0:
-                where_statement += " AND "
-            where_statement += f"{col}=${col}"
+        where_statement = " WHERE "
+        if where is not None:
+            for col, _ in where.items():
+                if len(where_statement) > 0:
+                    where_statement += " AND "
+                where_statement += f"{col}=${col}"
 
         try:
             self.session.cluster.wait_until_ready(
@@ -450,7 +451,7 @@ class CouchbaseHelper:
                 WaitUntilReadyOptions(service_types=[ServiceType.Query]),
             )
             query = N1QLQuery(
-                f"SELECT {select} FROM `{self.session.bucket_name}` WHERE {where_statement}"
+                f"SELECT {select} FROM `{self.session.bucket_name}`{where_statement}"
             )
             query.consistency = QueryScanConsistency.REQUEST_PLUS
             query.timeout = self.session.timeout.query
