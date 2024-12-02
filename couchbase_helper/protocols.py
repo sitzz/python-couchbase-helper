@@ -1,4 +1,4 @@
-from typing import Optional, runtime_checkable, Protocol, Union
+from typing import Optional, Protocol, Union
 
 from couchbase.bucket import Collection, Scope
 from couchbase.cluster import Bucket, Cluster
@@ -6,7 +6,6 @@ from couchbase.cluster import Bucket, Cluster
 from .timeout import Timeout
 
 
-@runtime_checkable
 class SessionProt(Protocol):
     def connect(self): ...
 

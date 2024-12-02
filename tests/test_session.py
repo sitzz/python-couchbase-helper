@@ -1,4 +1,5 @@
 import logging
+from typing import Protocol, runtime_checkable
 
 import pytest
 from couchbase_helper.protocols import SessionProt
@@ -7,10 +8,15 @@ from couchbase_helper import Timeout
 from .couchbase_session import session
 
 
+@runtime_checkable
+class SessionProtExt(SessionProt, Protocol):
+    pass
+
+
 @pytest.mark.order(1)
 def test_init():
     # Check session implements SessionProt
-    assert isinstance(session, SessionProt)
+    assert isinstance(session, SessionProtExt)
 
     # Check session creates a logger instance
     assert isinstance(session.logger, logging.Logger)
