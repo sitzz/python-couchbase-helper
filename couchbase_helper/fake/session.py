@@ -1,6 +1,6 @@
 from datetime import timedelta
 import logging
-from typing import Optional, Union
+from typing import Any, Dict
 
 from couchbase.auth import PasswordAuthenticator
 from couchbase.options import ClusterOptions, ClusterTimeoutOptions
@@ -55,7 +55,7 @@ class Session(SessionProt):
             show_queries=True,
         )
 
-        self._documents = {}
+        self._documents: Dict[str, Any] = {}
 
     @property
     def connection_string(self) -> str:
@@ -137,5 +137,5 @@ class Session(SessionProt):
         return self._connected
 
     @property
-    def timeout(self) -> Optional[Union[Timeout, int]]:
+    def timeout(self) -> Timeout:
         return self._timeout

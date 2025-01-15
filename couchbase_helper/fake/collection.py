@@ -215,7 +215,7 @@ class Collection(CollectionLogic):
             if isinstance(expiry_delta, int):
                 expiry_delta = timedelta(seconds=expiry_delta)
             dt_exp = utcnow() + expiry_delta
-            return dt_exp.timestamp()
+            return float(dt_exp.timestamp())
 
         return 0
 

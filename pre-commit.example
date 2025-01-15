@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+# Ruff code and formatting check
+ruff check --no-cache
+ruff format --check --no-cache --silent
+
+# Mypy
+python -m mypy -p couchbase_helper
+
+
+# Bandit?
+
+
+# Flake8?
+
+
+# Safety?
+

@@ -20,7 +20,7 @@ from couchbase.options import (
 )
 from couchbase.scope import Scope
 
-from .exceptions import BucketNotSet, ScopeNotSet
+from .exceptions import BucketNotSet, ClusterNotSet, ScopeNotSet
 from .protocols import SessionProt
 from .timeout import Timeout
 
@@ -68,7 +68,7 @@ class Session(SessionProt):
         tls: bool = False,
         timeout: Optional[Union[Timeout, Tuple[int, int, int], int]] = None,
         wan: bool = False,
-        logger: logging.Logger = None,
+        logger: Optional[logging.Logger] = None,
     ):
         # Initiate logger
         if logger is None:
@@ -186,6 +186,9 @@ class Session(SessionProt):
     @property
     def bucket_name(self) -> str:
         """Returns the bucket name"""
+        if self._bucket is None:
+            raise BucketNotSet("no bucket set")
+
         return self._bucket_name
 
     def create_bucket(self, name, settings: CreateBucketSettings):
@@ -197,6 +200,9 @@ class Session(SessionProt):
             settings (:class:`couchbase.management.logic.buckets_logic.BucketSettings`):
                 The settings of the bucket to create.
         """
+        if self._cluster is None:
+            raise ClusterNotSet("no cluster set")
+
         bucket_manager = self._cluster.buckets()
         try:
             if settings.name is None:
@@ -291,22 +297,11 @@ class Session(SessionProt):
         return True
 
     @property
-    def timeout(self, attr: Optional[str] = None) -> Optional[Union[Timeout, int]]:
+    def timeout(self) -> Timeout:
         """Returns the timeout configuration
 
-        Args:
-            attr (str | None):
-                The timeout attribute to return.
-
         Returns:
-            Timeout | int | none:
-                If `attr` is not set or is `None` will return the
-                entire :class:`~couchbase_helper.timeout.Timeout` instance.
-                If `attr` is not found, will return `None`.
+            Timeout:
+                Will return the entire :class:`~couchbase_helper.timeout.Timeout` instance.
         """
-        if attr is None:
-            return self._timeout
-        if hasattr(self._timeout, attr):
-            return getattr(self._timeout, attr)
-
-        return None
+        return self._timeout

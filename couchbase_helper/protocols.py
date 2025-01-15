@@ -1,4 +1,4 @@
-from typing import Optional, Protocol, Union
+from typing import Protocol
 
 from couchbase.bucket import Collection, Scope
 from couchbase.cluster import Bucket, Cluster
@@ -32,4 +32,4 @@ class SessionProt(Protocol):
     def ping(self) -> bool: ...
 
     @property
-    def timeout(self) -> Optional[Union[Timeout, int]]: ...
+    def timeout(self) -> Timeout: ...
