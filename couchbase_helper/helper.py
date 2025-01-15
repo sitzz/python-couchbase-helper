@@ -438,11 +438,13 @@ class CouchbaseHelper:
         if opts is None:
             opts = {}
 
-        where_statement = " WHERE "
+        where_statement = ""
         if where is not None:
             for col, _ in where.items():
                 if len(where_statement) > 0:
                     where_statement += " AND "
+                else:
+                    where_statement += " WHERE "
                 where_statement += f"{col}=${col}"
 
         try:
