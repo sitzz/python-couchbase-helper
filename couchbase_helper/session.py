@@ -128,10 +128,12 @@ class Session(SessionProt):
     def connect(self):
         """Establish a connection to the cluster using the set bucket, scope, and collection."""
         self.logger.debug("- Connecting to cluster: %s", self.connection_string)
-        self._cluster = Cluster.connect(
-            self.connection_string,
-            self.options,
-        )
+
+        if self._cluster is None:
+            self._cluster = Cluster.connect(
+                self.connection_string,
+                self.options,
+            )
 
         if self._bucket_name is not None:
             self.bucket = self._bucket_name
@@ -171,6 +173,18 @@ class Session(SessionProt):
     def cluster(self) -> Cluster:
         """Returns the cluster instance"""
         return self._cluster
+
+    @cluster.setter
+    def cluster(self, value):
+        connect = False
+        if self._connected:
+            connect = True
+            self.disconnect()
+
+        self._cluster = value
+
+        if connect:
+            self.connect()
 
     @property
     def bucket(self) -> Bucket:
