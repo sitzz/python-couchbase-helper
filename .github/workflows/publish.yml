@@ -33,3 +33,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.9.0
         with:
           print-hash: true
+          repository-url: https://test.pypi.org/legacy/
