@@ -3,9 +3,8 @@
 name: Upload Python Package to PyPI
 
 on:
-  push:
-    branches:
-      - 'chore/github-workflows'
+  release:
+    types: [published]
 
 jobs:
   publish:
@@ -13,8 +12,8 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     environment:
-      name: testpypi
-      url: https://test.pypi.org/p/couchbase-helper
+      name: pypi
+      url: https://pypi.org/p/couchbase-helper
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -33,4 +32,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.9.0
         with:
           print-hash: true
-          repository-url: https://test.pypi.org/legacy/
