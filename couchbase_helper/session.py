@@ -131,7 +131,7 @@ class Session(SessionProt):
 
         if self._cluster is None:
             self._cluster = Cluster
-        self.cluster.connect(self.connection_string, self.options)
+        self._cluster.connect(self.connection_string, self.options)
 
         if self._bucket_name is not None:
             self.bucket = self._bucket_name
