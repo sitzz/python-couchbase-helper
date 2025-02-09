@@ -130,10 +130,8 @@ class Session(SessionProt):
         self.logger.debug("- Connecting to cluster: %s", self.connection_string)
 
         if self._cluster is None:
-            self._cluster = Cluster.connect(
-                self.connection_string,
-                self.options,
-            )
+            self._cluster = Cluster
+        self._cluster.connect(self.connection_string, self.options)
 
         if self._bucket_name is not None:
             self.bucket = self._bucket_name
