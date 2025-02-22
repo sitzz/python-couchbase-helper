@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from couchbase.n1ql import N1QLQuery, QueryScanConsistency
 from couchbase.options import QueryOptions
 
-from .converters import escape_str
 from .options import build_opts
 from .session import Session
 from .timeout import Timeout
@@ -297,8 +296,7 @@ class N1ql:
     @staticmethod
     def _clean_key(string):
         """clean a column/key from any non-word chars"""
-        new_key = re.sub(r"\W", "", string)
-        return escape_str(new_key)
+        return re.sub(r"\W", "", string)
 
     def _reset(self):
         """resets class variables and session"""
