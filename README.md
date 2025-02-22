@@ -24,10 +24,11 @@ Couchbase Helper is currently rather basic and mostly/only support the following
 * `remove`
 * `remove_multi`
 
-It currently also has very basic functionality for view queries (`view_query`) and n1ql (`n1ql`) which aren't that
-fancy. There are ideas on how to enhance these, especially the `n1ql`  method, but still nothing specific. Follow issues
-[#9](https://github.com/sitzz/python-couchbase-helper/issues/9) and
+It currently also has very basic functionality for view queries (`view_query`) which isn't all that fancy. Follow issue
 [#18](https://github.com/sitzz/python-couchbase-helper/issues/18) for updates on this.
+
+An N1ql (SQL++) helper class is also available, which provides chainable methods to create SQL++ queries to select from
+indexes.
 
 # Installation
 
@@ -41,8 +42,9 @@ $ poetry add couchbase-helper
 ... and so on
 ```
 
-# Example
+# Examples
 
+**Basic operations**
 ```Python
 from couchbase_helper import CouchbaseHelper, Session
 
@@ -73,4 +75,29 @@ document["hello"] = "world"
 cb.upsert("foo1", document)
 ```
 
+**SQL++/N1QL examples**
+```Python
+from couchbase_helper import Session
+from couchbase_helper.n1ql import N1ql
 
+# Connect to Couchbase server/cluster
+session = Session(
+    hostname="localhost",
+    username="username",
+    password="password",
+    bucket="bucket",
+    timeout=10,
+)
+session.connect()
+n1ql = N1ql(session=session)
+
+# Select documents where foo=bar
+rows = n1ql.where("foo=", "bar").get()
+for row in rows:
+    ...
+
+# You can also select specific columns, from a different bucket , scope, or even collection than the session's:
+rows = n1ql.select("callsign").from_("travel-sample", "inventory", "airport").where("city=", "San Jose").or_where("city=", "New York").get()
+for row in rows:
+    ...
+```
