@@ -55,9 +55,11 @@ class N1ql:
 
         # Query runtime variables
         self._columns = ["*"]
-        self._distinct = False
         self._conditions: List[Tuple[str, str, Any]] = []
-        self._reset: Dict[str, str] = {}
+        self._distinct: bool = False
+        self._limit: Optional[int] = None
+        self._offset: Optional[int] = None
+        self._session_reset: Dict[str, str] = {}
 
     def select(self, columns: Optional[Union[str, List[str]]] = None):
         """
@@ -100,15 +102,15 @@ class N1ql:
         collection: Optional[str] = None,
     ):
         if bucket is not None and bucket != self.session.bucket.name:
-            self._reset["bucket"] = self.session.bucket.name
+            self._session_reset["bucket"] = self.session.bucket.name
             self.session.bucket = bucket
 
         if scope is not None and scope != self.session.scope.name:
-            self._reset["scope"] = self.session.scope.name
+            self._session_reset["scope"] = self.session.scope.name
             self.session.scope = scope
 
         if collection is not None and collection != self.session.collection.name:
-            self._reset["collection"] = self.session.collection.name
+            self._session_reset["collection"] = self.session.collection.name
             self.session.collection = collection
 
         return self
@@ -167,6 +169,46 @@ class N1ql:
 
         self._conditions.append((type_, processed_key, value))
 
+    def limit(self, limit: int):
+        """
+        Add a limit to the query
+
+        Args:
+             limit (int):
+                The limit of items a query can return
+
+        Returns:
+            `self`
+        """
+        try:
+            self._limit = int(limit)
+        except ValueError:
+            pass
+
+        return self
+
+    def offset(self, offset: int):
+        """
+        Add an offset to the query
+
+        Args:
+             offset (int):
+                The number of records the query must skip
+
+        Returns:
+            `self`
+        """
+        try:
+            self._offset = int(offset)
+        except ValueError:
+            pass
+
+        return self
+
+    def skip(self, skip: int):
+        """an alias for :class:`offset`"""
+        return self.offset(skip)
+
     def get(self, opts: Optional[QueryOptions] = None):
         """
 
@@ -207,6 +249,16 @@ class N1ql:
                 where += f"{_where_part} "
             where = f"WHERE {where}"
 
+        # append limit
+        limit = ""
+        if self._limit is not None:
+            limit = f"LIMIT {limit}"
+
+        # append skip
+        offset = ""
+        if self._offset is not None:
+            offset = f"OFFSET {offset}"
+
         # init QueryOptions
         if opts is None:
             opts = {}
@@ -215,7 +267,7 @@ class N1ql:
         options = build_opts("query", opts=opts)
 
         # generate the prepared statement
-        statement = f"SELECT{' DISTINCT' if self._distinct else ''} {columns} FROM {from_} {ident} {where}".strip()
+        statement = f"SELECT{' DISTINCT' if self._distinct else ''} {columns} FROM {from_} {ident} {where} {limit} {offset}".strip()
         try:
             # initiate the N1QLQuery instance
             query = N1QLQuery(statement)
@@ -226,11 +278,7 @@ class N1ql:
             rows = self.session.cluster.query(query.statement, **options).rows()
 
             # reset class variables
-            if self._reset:
-                for prop, original in self._reset.items():
-                    setattr(self.session, prop, original)
-                self._reset = {}
-            self._distinct = False
+            self._reset()
 
             # return
             return rows
@@ -252,8 +300,21 @@ class N1ql:
         new_key = re.sub(r"\W", "", string)
         return escape_str(new_key)
 
+    def _reset(self):
+        """resets class variables and session"""
+        self._columns = ["*"]
+        self._conditions = []
+        self._distinct = False
+        self._limit = None
+        self._offset = None
+        if self._session_reset:
+            for prop, original in self._session_reset.items():
+                setattr(self.session, prop, original)
+            self._session_reset = {}
+
     @staticmethod
     def _enclose_reserved_word(word):
+        # TODO: find a better place for this list ...
         """enclose reserved words"""
         reserved = (
             "_INDEX_CONDITION",
