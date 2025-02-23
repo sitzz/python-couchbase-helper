@@ -2,6 +2,12 @@
 
 set -e
 
+# Ensure virtual enrionment
+. .venv/bin/activate
+
+# Run pytest
+pytest
+
 # Ruff code and formatting check
 ruff check --no-cache
 ruff format --check --no-cache --silent
@@ -9,12 +15,9 @@ ruff format --check --no-cache --silent
 # Mypy
 python -m mypy -p couchbase_helper
 
+# Bandit
+#bandit -r couchbase_helper/*
 
-# Bandit?
-
-
-# Flake8?
-
-
-# Safety?
+# Pylint
+#pylint --disable=E0401 --max-line-length=120 couchbase_helper/
 
