@@ -164,7 +164,7 @@ class Session(SessionProt):
         if self._cluster is None:
             return False
 
-        return self._cluster.connected
+        return self._connected and self._cluster.connected
 
     @property
     def cluster(self) -> Cluster:
