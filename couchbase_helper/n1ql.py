@@ -150,7 +150,7 @@ class N1ql:
         return self
 
     def orwhere(self, key: str, value: Any):
-        """an alias for :class:`or_where`"""
+        """an alias for :class:`~.or_where`"""
         return self.or_where(key, value)
 
     # TODO ... : def not_(self, ...):
