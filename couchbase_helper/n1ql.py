@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from couchbase.n1ql import N1QLQuery, QueryScanConsistency
 from couchbase.options import QueryOptions
+from couchbase.result import QueryResult
 
 from .options import build_opts
 from .session import Session
@@ -66,7 +67,7 @@ class N1ql:
 
         Args:
             columns (Union[str, List[str]]):
-                The column or columns to select in the query
+                The column or columns to select in the query as a list of strings or comma separated string
         Returns:
             `self`
         """
@@ -208,8 +209,9 @@ class N1ql:
         """an alias for :class:`offset`"""
         return self.offset(skip)
 
-    def get(self, opts: Optional[QueryOptions] = None):
+    def rows(self, opts: Optional[QueryOptions] = None) -> Optional[QueryResult]:
         """
+        Execute a select statement and return the fetched rows
 
         Args:
              opts (optional `couchbase.options.QueryOptions`):
@@ -251,39 +253,54 @@ class N1ql:
         # append limit
         limit = ""
         if self._limit is not None:
-            limit = f"LIMIT {limit}"
+            limit = f"LIMIT {self._limit}"
 
         # append skip
         offset = ""
         if self._offset is not None:
-            offset = f"OFFSET {offset}"
+            offset = f"OFFSET {self._offset}"
 
         # init QueryOptions
         if opts is None:
             opts = {}
         if positional_arguments:
             opts["positional_parameters"] = positional_arguments
-        options = build_opts("query", opts=opts)
 
         # generate the prepared statement
         statement = f"SELECT{' DISTINCT' if self._distinct else ''} {columns} FROM {from_} {ident} {where} {limit} {offset}".strip()
+
+        # execute and return rows
+        rows = None
         try:
-            # initiate the N1QLQuery instance
-            query = N1QLQuery(statement)
-            query.consistency = QueryScanConsistency.REQUEST_PLUS
-            query.timeout = self.session.timeout.query
-
-            # select rows
-            rows = self.session.cluster.query(query.statement, **options).rows()
-
-            # reset class variables
+            rows = self._execute(statement, opts).rows()
+        except AttributeError:
+            pass
+        finally:
             self._reset()
 
-            # return
-            return rows
-        except (
-            Exception
-        ) as _err:  # intentionally broad initially to see what it actually raised
+        return rows
+
+    def _execute(
+        self,
+        statement: str,
+        opts: Optional[QueryOptions] = None,
+        *,
+        consistency: Optional[QueryScanConsistency] = None,
+    ):
+        """execute a statement"""
+        # init QueryOptions
+        if opts is None:
+            opts = {}
+        options = build_opts("query", opts=opts)
+
+        try:
+            # Initiate the N1QLQuery instance
+            query = N1QLQuery(statement)
+            if consistency is not None:
+                query.consistency = consistency
+            query.timeout = self.session.timeout.query
+            return self.session.cluster.query(query.statement, **options)
+        except Exception as _err:  # intentionally broad initially to see what exceptions are actually raised
             print(f"SQL++ exception happened ({type(_err).__name__}): {_err}")
 
         return None
