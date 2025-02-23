@@ -92,12 +92,12 @@ session.connect()
 n1ql = N1ql(session=session)
 
 # Select documents where foo=bar
-rows = n1ql.where("foo=", "bar").get()
+rows = n1ql.where("foo=", "bar").rows()
 for row in rows:
     ...
 
 # You can also select specific columns, from a different bucket , scope, or even collection than the session's:
-rows = n1ql.select("callsign").from_("travel-sample", "inventory", "airport").where("city=", "San Jose").or_where("city=", "New York").get()
+rows = n1ql.select("callsign").from_("travel-sample", "inventory", "airport").where("city=", "San Jose").or_where("city=", "New York").rows()
 for row in rows:
     ...
 ```
