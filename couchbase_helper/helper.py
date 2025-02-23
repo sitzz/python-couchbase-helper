@@ -20,7 +20,7 @@ class CouchbaseHelper:
     """A couchbase helper class to simplify document operations
 
     Args:
-        session (implements :class:`~couchbase_helper.protocols.SessionProt`):
+        session (implements :class:`couchbase_helper.protocols.SessionProt`):
             The cluster connection session
         logger (:class:`logging.logger`):
             The logging instance to use for log message. Defaults to the root logger.
@@ -52,7 +52,7 @@ class CouchbaseHelper:
         Args:
             key (str):
                 The key of the document to save.
-            value (`~couchbase_helper._types.JSONType`):
+            value (`couchbase_helper._types.JSONType`):
                 The value of the document to save.
             expiry (int | `:class:`datetime.timedelta`):
                 The expiry of the document to save.
@@ -147,7 +147,7 @@ class CouchbaseHelper:
         Args:
             key (str):
                 The key of the document to save.
-            value (`~couchbase_helper._types.JSONType`):
+            value (`couchbase_helper._types.JSONType`):
                 The value of the document to save.
             expiry (int | `:class:`datetime.timedelta`):
                 The expiry of the document to save.
@@ -360,11 +360,11 @@ class CouchbaseHelper:
         return False
 
     def delete(self, *args, **kwargs):
-        """Alias for :class:`self.remove`"""
+        """Alias for :class:`~.remove`"""
         return self.remove(*args, **kwargs)
 
     def delete_multi(self, *args, **kwargs):
-        """Alias for :class:`self.remove_multi`"""
+        """Alias for :class:`~.remove_multi`"""
         return self.remove_multi(*args, **kwargs)
 
     def view_query(
@@ -376,7 +376,6 @@ class CouchbaseHelper:
         skip: Optional[int] = None,
         opts: Optional[Dict[str, Any]] = None,
     ) -> Optional[List[Dict[Any, Any]]]:
-        # TODO: method needs to be redone.
         if opts is None:
             opts = {}
         if limit is not None:
