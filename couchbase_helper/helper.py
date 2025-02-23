@@ -4,31 +4,23 @@ from typing import Any, Dict, List, Optional, Union
 
 from couchbase.diagnostics import ServiceType
 from couchbase.exceptions import DocumentExistsException, DocumentNotFoundException
-from couchbase.n1ql import N1QLQuery, QueryScanConsistency
 from couchbase.options import (
-    InsertMultiOptions,
     InsertOptions,
-    GetMultiOptions,
-    GetOptions,
-    QueryOptions,
-    RemoveMultiOptions,
-    RemoveOptions,
-    UpsertMultiOptions,
     UpsertOptions,
-    ViewOptions,
     WaitUntilReadyOptions,
 )
-from couchbase.result import QueryResult, GetResult, MultiGetResult
+from couchbase.result import GetResult, MultiGetResult
 
-from .protocols import SessionProt
 from ._types import JSONType
+from .options import build_opts
+from .protocols import SessionProt
 
 
 class CouchbaseHelper:
     """A couchbase helper class to simplify document operations
 
     Args:
-        session (implements :class:`~couchbase_helper.protocols.SessionProt`):
+        session (implements :class:`couchbase_helper.protocols.SessionProt`):
             The cluster connection session
         logger (:class:`logging.logger`):
             The logging instance to use for log message. Defaults to the root logger.
@@ -60,7 +52,7 @@ class CouchbaseHelper:
         Args:
             key (str):
                 The key of the document to save.
-            value (`~couchbase_helper._types.JSONType`):
+            value (`couchbase_helper._types.JSONType`):
                 The value of the document to save.
             expiry (int | `:class:`datetime.timedelta`):
                 The expiry of the document to save.
@@ -74,7 +66,7 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": self._build_opts("insert", opts=opts, expiry=expiry),
+            "opts": build_opts("insert", opts=opts, expiry=expiry),
         }
 
         try:
@@ -117,13 +109,13 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = self._build_opts("insert", opts=val)
+                per_key_opts[key] = build_opts("insert", opts=val)
 
             opts["per_key_options"] = per_key_opts
 
         args = {
             "keys_and_docs": documents,
-            "opts": self._build_opts("insert_multi", opts=opts, expiry=expiry),
+            "opts": build_opts("insert_multi", opts=opts, expiry=expiry),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -155,7 +147,7 @@ class CouchbaseHelper:
         Args:
             key (str):
                 The key of the document to save.
-            value (`~couchbase_helper._types.JSONType`):
+            value (`couchbase_helper._types.JSONType`):
                 The value of the document to save.
             expiry (int | `:class:`datetime.timedelta`):
                 The expiry of the document to save.
@@ -169,7 +161,7 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": self._build_opts("insert", opts=opts, expiry=expiry),
+            "opts": build_opts("insert", opts=opts, expiry=expiry),
         }
 
         try:
@@ -212,13 +204,13 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = self._build_opts("upsert", opts=val)
+                per_key_opts[key] = build_opts("upsert", opts=val)
 
             opts["per_key_options"] = per_key_opts
 
         args = {
             "keys_and_docs": documents,
-            "opts": self._build_opts("upsert_multi", opts=opts, expiry=expiry),
+            "opts": build_opts("upsert_multi", opts=opts, expiry=expiry),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -255,7 +247,7 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.GetResult` | Dict[Any, Any] | None
         """
-        args = {"key": key, "opts": self._build_opts("get", opts=opts)}
+        args = {"key": key, "opts": build_opts("get", opts=opts)}
 
         try:
             self.session.cluster.wait_until_ready(
@@ -288,7 +280,7 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.MultiGetResult` | List[Dict[Any, Any]] | None
         """
-        args = {"keys": keys, "opts": self._build_opts("get", opts=opts)}
+        args = {"keys": keys, "opts": build_opts("get", opts=opts)}
 
         try:
             ret = []
@@ -317,7 +309,7 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operation.
         """
-        args = {"key": key, "opts": self._build_opts("remove", opts=opts)}
+        args = {"key": key, "opts": build_opts("remove", opts=opts)}
 
         self.session.cluster.wait_until_ready(
             timedelta(self.session.timeout.kv),
@@ -346,7 +338,7 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operations.
         """
-        args = {"keys": keys, "opts": self._build_opts("remove", opts=opts)}
+        args = {"keys": keys, "opts": build_opts("remove", opts=opts)}
 
         self.session.cluster.wait_until_ready(
             timedelta(self.session.timeout.kv),
@@ -368,11 +360,11 @@ class CouchbaseHelper:
         return False
 
     def delete(self, *args, **kwargs):
-        """Alias for :class:`self.remove`"""
+        """Alias for :class:`~.remove`"""
         return self.remove(*args, **kwargs)
 
     def delete_multi(self, *args, **kwargs):
-        """Alias for :class:`self.remove_multi`"""
+        """Alias for :class:`~.remove_multi`"""
         return self.remove_multi(*args, **kwargs)
 
     def view_query(
@@ -384,7 +376,6 @@ class CouchbaseHelper:
         skip: Optional[int] = None,
         opts: Optional[Dict[str, Any]] = None,
     ) -> Optional[List[Dict[Any, Any]]]:
-        # TODO: method needs to be redone.
         if opts is None:
             opts = {}
         if limit is not None:
@@ -401,7 +392,7 @@ class CouchbaseHelper:
             query = self.session.bucket.view_query(
                 design_doc=design_doc,
                 view_name=view_name,
-                **self._build_opts("view", opts=opts),
+                **build_opts("view", opts=opts),
             )
             query_metadata = query.metadata()
             if query_metadata is not None:
@@ -416,127 +407,3 @@ class CouchbaseHelper:
             )
 
         return None
-
-    def n1ql(
-        self,
-        select: str = "*",
-        where: Optional[Dict[str, Any]] = None,
-        *,
-        opts: Optional[Dict[str, Any]] = None,
-    ) -> Optional[QueryResult]:
-        # TODO: method needs to be redone.
-        """
-        generate and execute an N1QL query
-        :param select: str
-        the columns to select, defaults to "*" (all)
-        :param where: Dict[str, Any]
-        A key-value dictionary for the select statement
-        :param opts: optional Dict[str, Any]
-        any custom options to use for the query operation
-        :return: List[Dict[Any, Any]] | None
-        """
-        if opts is None:
-            opts = {}
-
-        where_statement = ""
-        if where is not None:
-            for col, _ in where.items():
-                if len(where_statement) > 0:
-                    where_statement += " AND "
-                else:
-                    where_statement += " WHERE "
-                where_statement += f"{col}=${col}"
-
-        try:
-            self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
-                WaitUntilReadyOptions(service_types=[ServiceType.Query]),
-            )
-            query = N1QLQuery(
-                f"SELECT {select} FROM `{self.session.bucket_name}`{where_statement}"
-            )
-            query.consistency = QueryScanConsistency.REQUEST_PLUS
-            query.timeout = self.session.timeout.query
-            return self.session.cluster.query(
-                query.statement, **self._build_opts("query", opts=opts), **where
-            ).rows()
-        except Exception as _err:
-            self.logger.error(
-                "an error occurred when performing N1QL query (%s): %s",
-                type(_err).__name__,
-                _err.args[0],
-            )
-
-        return None
-
-    def _build_opts(
-        self,
-        type_: str,
-        *,
-        opts: Optional[Dict[str, Any]] = None,
-        expiry: Optional[Union[int, timedelta]] = None,
-    ) -> Union[
-        InsertOptions,
-        InsertMultiOptions,
-        UpsertOptions,
-        UpsertMultiOptions,
-        GetOptions,
-        GetMultiOptions,
-        QueryOptions,
-        RemoveOptions,
-        RemoveMultiOptions,
-        ViewOptions,
-    ]:
-        """Generates operation options for specified operation type.
-
-        Args:
-            type_ (str):
-                The type of operation to return options for.
-            opts (Dict[str, Any]):
-                Initial options to use for initiating the operation options instance.
-            expiry (int | timedelta | None):
-                Any general document expiry to use for the operations.
-
-        Returns:
-            Dict[str, Any]
-        """
-        if opts is None:
-            opts = {}
-
-        default_timeout = timedelta(seconds=self.session.timeout.kv)
-        if type_ == "insert":
-            base_options = InsertOptions
-        elif type_ == "insert_multi":
-            base_options = InsertMultiOptions
-        elif type_ == "upsert":
-            base_options = UpsertOptions
-        elif type_ == "upsert_multi":
-            base_options = UpsertMultiOptions
-        elif type_ == "get":
-            base_options = GetOptions
-        elif type_ == "get_multi":
-            base_options = GetMultiOptions
-        elif type_ == "query":
-            base_options = QueryOptions
-            default_timeout = timedelta(seconds=self.session.timeout.query)
-        elif type_ == "remove":
-            base_options = RemoveOptions
-        elif type_ == "remove_multi":
-            base_options = RemoveMultiOptions
-        elif type_ == "view":
-            base_options = ViewOptions
-        else:
-            raise AttributeError(f"invalid attribute value {type_}")
-
-        if "timeout" not in opts:
-            opts["timeout"] = default_timeout
-
-        ret = base_options(**opts)
-
-        if ret is None:
-            ret = {}
-
-        if expiry is not None and isinstance(expiry, int):
-            ret["expiry"] = timedelta(seconds=expiry)
-
-        return ret
