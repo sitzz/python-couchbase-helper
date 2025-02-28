@@ -6,7 +6,8 @@ set -e
 . .venv/bin/activate
 
 # Run pytest
-pytest
+coverage run -m pytest
+coverage-badge -o coverage.svg
 
 # Ruff code and formatting check
 ruff check --no-cache

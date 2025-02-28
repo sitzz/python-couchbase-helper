@@ -1,5 +1,7 @@
 -r requirements.txt
 -e .
+coverage==7.6.12
+coverage-badge==1.1.2
 fake-couchbase @ git+https://github.com/sitzz/python-fake-couchbase@fb32b5a2528a0d7d7be420c15451b84bc4c0f11d
 mypy>=1.13.0
 pytest>=5.0
