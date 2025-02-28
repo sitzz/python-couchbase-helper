@@ -2,13 +2,15 @@ from datetime import timedelta
 from typing import Any, Dict, Optional, Union
 
 from couchbase.options import (
-    InsertMultiOptions,
-    InsertOptions,
     GetMultiOptions,
     GetOptions,
+    InsertMultiOptions,
+    InsertOptions,
     QueryOptions,
     RemoveMultiOptions,
     RemoveOptions,
+    ReplaceMultiOptions,
+    ReplaceOptions,
     UpsertMultiOptions,
     UpsertOptions,
     ViewOptions,
@@ -18,6 +20,20 @@ from .session import Session
 from .timeout import Timeout
 
 _TIMEOUT = Timeout()
+_TYPES = {
+    "get": GetOptions,
+    "get_multi": GetMultiOptions,
+    "insert": InsertOptions,
+    "insert_multi": InsertMultiOptions,
+    "query": QueryOptions,
+    "remove": RemoveOptions,
+    "remove_multi": RemoveMultiOptions,
+    "replace": ReplaceOptions,
+    "replace_multi": ReplaceMultiOptions,
+    "upsert": UpsertOptions,
+    "upsert_multi": UpsertMultiOptions,
+    "view": ViewOptions,
+}
 
 
 def build_opts(
@@ -31,6 +47,8 @@ def build_opts(
     InsertMultiOptions,
     UpsertOptions,
     UpsertMultiOptions,
+    ReplaceOptions,
+    ReplaceMultiOptions,
     GetOptions,
     GetMultiOptions,
     QueryOptions,
@@ -53,6 +71,11 @@ def build_opts(
     Returns:
         Dict[str, Any]
     """
+    if type_ not in _TYPES:
+        raise AttributeError(f"unknown options type {type_}")
+
+    base_options = _TYPES[type_]
+
     if opts is None:
         opts = {}
 
@@ -61,40 +84,15 @@ def build_opts(
     else:
         timeout = _TIMEOUT
 
-    default_timeout = timedelta(seconds=timeout.kv)
-    if type_ == "insert":
-        base_options = InsertOptions
-    elif type_ == "insert_multi":
-        base_options = InsertMultiOptions
-    elif type_ == "upsert":
-        base_options = UpsertOptions
-    elif type_ == "upsert_multi":
-        base_options = UpsertMultiOptions
-    elif type_ == "get":
-        base_options = GetOptions
-    elif type_ == "get_multi":
-        base_options = GetMultiOptions
-    elif type_ == "query":
-        base_options = QueryOptions
-        default_timeout = timedelta(seconds=timeout.query)
-    elif type_ == "remove":
-        base_options = RemoveOptions
-    elif type_ == "remove_multi":
-        base_options = RemoveMultiOptions
-    elif type_ == "view":
-        base_options = ViewOptions
-    else:
-        raise AttributeError(f"invalid attribute value {type_}")
-
     if "timeout" not in opts:
-        opts["timeout"] = default_timeout
+        if type_ in ("query", "view"):
+            opts["timeout"] = timedelta(seconds=timeout.query)
+        else:
+            opts["timeout"] = timedelta(seconds=timeout.kv)
 
-    ret = base_options(**opts)
+    if expiry is not None:
+        if isinstance(expiry, int):
+            expiry = timedelta(seconds=expiry)
+        opts["expiry"] = expiry
 
-    if ret is None:
-        ret = {}
-
-    if expiry is not None and isinstance(expiry, int):
-        ret["expiry"] = timedelta(seconds=expiry)
-
-    return ret
+    return base_options(**opts)
