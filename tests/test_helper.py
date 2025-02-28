@@ -79,6 +79,25 @@ def test_upsert_multi():
     assert cb_instance().upsert_multi(documents)
 
 
+def test_replace():
+    key, document = get_item("second")
+    document["replaced"] = True
+    assert cb_instance().replace(key, document)
+    new_document = cb_instance().get(key)
+    assert new_document.get("replaced", False)
+
+
+def test_replace_multi():
+    documents = {}
+    for key, document in get_items(100):
+        documents[key] = document
+        documents[key]["replaced"] = True
+    assert cb_instance().replace_multi(documents)
+    new_documents = cb_instance().get_multi(list(documents.keys()))
+    for new_document in new_documents:
+        assert new_document.get("replaced", False)
+
+
 @pytest.mark.order(after="test_insert")
 def test_update():
     key, document = get_item()

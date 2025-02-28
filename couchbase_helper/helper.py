@@ -230,6 +230,101 @@ class CouchbaseHelper:
 
         return False
 
+    def replace(
+        self,
+        key: str,
+        value: JSONType,
+        expiry: Optional[Union[int, timedelta]] = None,
+        opts: Optional[Dict[str, Any]] = None,
+    ):
+        """Replace a single document.
+
+        Args:
+            key (str):
+                The key of the document to save.
+            value (`couchbase_helper._types.JSONType`):
+                The value of the document to save.
+            expiry (int | `:class:`datetime.timedelta`):
+                The expiry of the document to save.
+            opts (Dict[str, Any]):
+                The operation options to use when saving document.
+
+        Returns:
+            (bool):
+                The status of the insert operation.
+        """
+        args = {
+            "key": key,
+            "value": value,
+            "opts": build_opts("replace", opts=opts, expiry=expiry),
+        }
+
+        try:
+            self.session.cluster.wait_until_ready(
+                timedelta(self.session.timeout.kv),
+                WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+            )
+            self.session.collection.upsert(**args)
+            return True
+        except DocumentNotFoundException:
+            return False
+
+    def replace_multi(
+        self,
+        documents: Dict[str, JSONType],
+        expiry: Optional[Union[int, timedelta]] = None,
+        opts: Optional[Dict[str, Any]] = None,
+        per_key_opts: Optional[Dict[str, UpsertOptions]] = None,
+    ) -> bool:
+        """Update or insert multiple documents, for each key-value pair in the
+        `documents` dictionary a document will be updated or created.
+
+        Args:
+            documents (Dict[str, JSONType]):
+                A dictionary of the documents to be saved.
+            expiry (int | `:class:`datetime.timedelta`):
+                The expiry of the documents to save.
+            opts (Dict[str, Any]):
+                The operation options to use when saving document.
+            per_key_opts (Dict[str, :class:`couchbase.options.UpsertOptions`]):
+                A dictionary of :class:`couchbase.options.UpsertOptions` per document key.
+
+        Returns:
+            (bool):
+                The status of the upsert operations. Will return `True` if all operations
+                were successful, `False` otherwise.
+        """
+        if opts is None:
+            opts = {}
+
+        if per_key_opts is not None:
+            for key, val in per_key_opts.items():
+                per_key_opts[key] = build_opts("upsert", opts=val)
+
+            opts["per_key_options"] = per_key_opts
+
+        args = {
+            "keys_and_docs": documents,
+            "opts": build_opts("replace_multi", opts=opts, expiry=expiry),
+        }
+        try:
+            self.session.cluster.wait_until_ready(
+                timedelta(self.session.timeout.kv),
+                WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
+            )
+            result = self.session.collection.replace_multi(**args)
+            if result.all_ok:
+                return True
+
+            for key, exception in result.exceptions.items():
+                self.logger.error("unable to replace document %s: %s", key, exception)
+        except Exception as _err:
+            self.logger.error(
+                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+            )
+
+        return False
+
     def get(
         self, key: str, opts: Optional[Dict[str, Any]] = None, *, raw: bool = False
     ) -> Optional[Union[GetResult, Dict[Any, Any]]]:
