@@ -109,7 +109,7 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = build_opts("insert", opts=val)
+                per_key_opts[key] = build_opts("insert_multi", opts=val)
 
             opts["per_key_options"] = per_key_opts
 
@@ -161,7 +161,7 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": build_opts("insert", opts=opts, expiry=expiry),
+            "opts": build_opts("upsert", opts=opts, expiry=expiry),
         }
 
         try:
@@ -375,7 +375,7 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.MultiGetResult` | List[Dict[Any, Any]] | None
         """
-        args = {"keys": keys, "opts": build_opts("get", opts=opts)}
+        args = {"keys": keys, "opts": build_opts("get_multi", opts=opts)}
 
         try:
             ret = []
@@ -433,7 +433,7 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operations.
         """
-        args = {"keys": keys, "opts": build_opts("remove", opts=opts)}
+        args = {"keys": keys, "opts": build_opts("remove_multi", opts=opts)}
 
         self.session.cluster.wait_until_ready(
             timedelta(self.session.timeout.kv),
