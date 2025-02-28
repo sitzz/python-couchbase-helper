@@ -20,6 +20,8 @@ Couchbase Helper is currently rather basic and mostly/only support the following
 * `insert_multi`
 * `upsert`
 * `upsert_multi`
+* `replace`
+* `replace_multi`
 * `get`
 * `get_multi`
 * `remove`
@@ -74,6 +76,12 @@ print(document["foo"])  # bar
 # Update document
 document["hello"] = "world"
 cb.upsert("foo1", document)
+
+# Replace a document
+new_document = {
+    "bar": "baz"
+}
+cb.replace("foo1", new_document)
 ```
 
 **SQL++/N1QL examples**
