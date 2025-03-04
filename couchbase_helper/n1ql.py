@@ -228,7 +228,7 @@ class N1ql:
         ):
             from_ += f".{self._enclose_reserved_word(self.session.scope.name)}.{self._enclose_reserved_word(self.session.collection.name)}"
 
-        ident = from_[0:1]
+        ident = self.session.bucket.name[0:1]
         prefix = f"{ident}."
 
         # generate columns for selection
@@ -560,6 +560,9 @@ class N1ql:
         )
 
         if word.upper() in reserved:
+            word = f"`{word}`"
+
+        if "." in word:
             word = f"`{word}`"
 
         return word
