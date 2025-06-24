@@ -20,7 +20,7 @@ class N1ql:
         session (implements :class:`~couchbase_helper.protocols.SessionProt`)
             The cluster connection session
         logger (:class:`logging.logger`):
-            DEPRECATED SINCE v0.1.3, WILL USE SESSION LOGGER INSTEAD
+            DEPRECATED SINCE v0.1.3, SHOULD USE SESSION LOGGER INSTEAD
             The logging instance to use for log message. Defaults to the root logger.
 
     Usage:
@@ -45,15 +45,15 @@ class N1ql:
     """
 
     def __init__(self, session: Session, logger: Optional[logging.Logger] = None):
-        if session.logger is not None:
+        if logger is not None:
+            self.logger = logger
+            self.logger.warning(
+                "usage of parameter 'logger' in N1ql class deprecated since 0.1.3 and will be removed in a future version"
+            )
+        elif session.logger is not None:
             self.logger = session.logger
         else:
             self.logger = logging.getLogger()
-
-        if logger is not None:
-            self.logger.warning(
-                "usage of parameter 'logger' in CouchbaseHelper class deprecated since 0.1.3 and will be removed in a future version"
-            )
 
         self.session = session
 
