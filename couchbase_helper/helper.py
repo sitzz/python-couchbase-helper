@@ -23,17 +23,20 @@ class CouchbaseHelper:
         session (implements :class:`couchbase_helper.protocols.SessionProt`):
             The cluster connection session
         logger (:class:`logging.logger`):
+            DEPRECATED SINCE v0.1.3, WILL USE SESSION LOGGER INSTEAD
             The logging instance to use for log message. Defaults to the root logger.
     """
 
-    def __init__(
-        self,
-        session: SessionProt,
-        logger: Optional[logging.Logger] = None,
-    ):
-        if logger is None:
-            logger = logging.getLogger()
-        self.logger = logger
+    def __init__(self, session: SessionProt, logger: Optional[logging.Logger] = None):
+        if session.logger is not None:
+            self.logger = session.logger
+        else:
+            self.logger = logging.getLogger()
+
+        if logger is not None:
+            self.logger.warning(
+                "usage of parameter 'logger' in CouchbaseHelper class deprecated since 0.1.3 and will be removed in a future version"
+            )
 
         self.session = session
 
