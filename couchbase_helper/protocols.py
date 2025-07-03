@@ -1,3 +1,4 @@
+import logging
 from typing import Protocol
 
 from couchbase.bucket import Collection, Scope
@@ -7,6 +8,8 @@ from .timeout import Timeout
 
 
 class SessionProt(Protocol):
+    logger: logging.Logger
+
     def connect(self): ...
 
     def disconnect(self): ...
