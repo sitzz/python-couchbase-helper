@@ -17,7 +17,7 @@ def retry(
     attempts: int = 3,
     delay: float = 0.1,
     policy: RetryPolicy = RetryPolicy.FLAT,
-    exceptions: Optional[Tuple[Exception]] = None,
+    exceptions: Optional[Tuple[type[Exception]]] = None,
 ) -> Callable:
     def handler(func):
         @wraps(func)
@@ -41,6 +41,8 @@ def retry(
                         backoff = delay * (randint(17, 233) / 100)
 
                     sleep(backoff)
+
+            return None
 
         return wrapper
 
