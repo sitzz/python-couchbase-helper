@@ -12,14 +12,14 @@ from couchbase.exceptions import (
     CollectionAlreadyExistsException,
     ScopeAlreadyExistsException,
 )
-from couchbase.management.collections import CollectionSpec
-from couchbase.management.logic.buckets_logic import CreateBucketSettings
+from couchbase.management.buckets import CreateBucketSettings
 from couchbase.options import (
     ClusterOptions,
     ClusterTimeoutOptions,
 )
 from couchbase.scope import Scope
 
+from ._compat import create_collection as _create_collection
 from .exceptions import BucketNotSet, ClusterNotSet, ScopeNotSet
 from .protocols import SessionProt
 from .timeout import Timeout
@@ -173,6 +173,12 @@ class Session(SessionProt):
 
     @cluster.setter
     def cluster(self, value):
+        """Set the cluster instance
+
+        Args:
+            value (str):
+                The name of the cluster to interact with.
+        """
         connect = False
         if self._connected:
             connect = True
@@ -190,14 +196,23 @@ class Session(SessionProt):
 
     @bucket.setter
     def bucket(self, value):
-        """Set the bucket instance"""
+        """Set the bucket instance
+
+        Args:
+            value (str):
+                The name of the bucket to interact with.
+        """
         self._bucket = self._cluster.bucket(value)
         self._bucket_name = value
 
     @property
     def bucket_name(self) -> str:
-        """Returns the bucket name"""
-        if self._bucket is None:
+        """Returns the configured bucket name
+
+        Raises:
+            BucketNotSet: if no bucket name has been configured.
+        """
+        if self._bucket_name is None:
             raise BucketNotSet("no bucket set")
 
         return self._bucket_name
@@ -208,7 +223,7 @@ class Session(SessionProt):
         Args:
             name (str):
                 The name of the bucket to create.
-            settings (:class:`couchbase.management.logic.buckets_logic.BucketSettings`):
+            settings (:class:`couchbase.management.buckets.CreateBucketSettings`):
                 The settings of the bucket to create.
         """
         if self._cluster is None:
@@ -230,7 +245,12 @@ class Session(SessionProt):
 
     @scope.setter
     def scope(self, value):
-        """Set the scope instance"""
+        """Set the scope instance
+
+        Args:
+            value (str):
+                The name of the scope to interact with.
+        """
         if self._bucket is None:
             raise BucketNotSet("no bucket set")
 
@@ -260,7 +280,12 @@ class Session(SessionProt):
 
     @collection.setter
     def collection(self, value):
-        """Set the collection instance"""
+        """Set the collection instance
+
+        Args:
+            value (str):
+                The name of the collection to interact with.
+        """
         if self._scope is None:
             raise ScopeNotSet("no scope set")
 
@@ -272,7 +297,7 @@ class Session(SessionProt):
 
         Args:
             name (str):
-                The name of the collection to create
+                The name of the collection to create.
         """
         if name == "_default":
             return
@@ -281,9 +306,12 @@ class Session(SessionProt):
             raise BucketNotSet("no bucket set")
 
         collection_manager = self._bucket.collections()
-        collection_spec = CollectionSpec(self._collection_name, scope_name=name)
         try:
-            collection_manager.create_collection(collection_spec)
+            _create_collection(
+                collection_manager,
+                scope_name=self._scope_name,
+                collection_name=name,
+            )
         except CollectionAlreadyExistsException:
             pass
 
