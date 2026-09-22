@@ -7,7 +7,13 @@ set -e
 
 # Run pytest
 coverage run -m pytest
-coverage-badge -o coverage.svg
+
+# Run coverage and generate badge
+coverage xml
+genbadge coverage -i coverage.xml -o coverage.svg
+
+# Tox
+tox -e lint,type
 
 # Ruff code and formatting check
 ruff check --no-cache
