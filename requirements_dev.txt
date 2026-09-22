@@ -1,8 +1,37 @@
--r requirements.txt
--e .
-coverage==7.6.12
-coverage-badge==1.1.2
-fake-couchbase @ git+https://github.com/sitzz/python-fake-couchbase@fb32b5a2528a0d7d7be420c15451b84bc4c0f11d
-mypy>=1.13.0
-pytest>=5.0
-pytest-order>=1.3.0
+# Full local development environment.
+#
+#     python -m venv .venv
+#     . .venv/bin/activate
+#     pip install -r requirements_dev.txt
+#
+#     pytest                  # suite on this interpreter
+#     tox -p auto             # full 3.9-3.14 x SDK matrix
+#     tox -e lint,type        # ruff + mypy
+#
+# Requires Python 3.10+: tox, mypy and build have all dropped 3.9. The suite
+# itself still runs on 3.9 -- tox installs requirements_test.txt into each matrix
+# env, and that file is the one constrained to the full support range.
+
+-r requirements_test.txt
+
+# Exact pins on purpose. Each of these runs on a single interpreter, and a new
+# release changes results rather than just fixing bugs: ruff widens its default
+# rule set between minor versions (0.16 added the UP/I/BLE/SIM families) and
+# mypy adds checks. Unpinned, they turn an unrelated push into a CI failure.
+mypy==2.3.1
+ruff==0.16.8
+
+# Matrix runner. tox-uv delegates env creation to uv, which fetches the 3.9-3.13
+# interpreters on demand -- so only one Python has to be installed locally.
+tox==4.63.0
+tox-uv==1.36.0
+
+# Coverage badge. The [coverage] extra pulls in defusedxml, without which
+# `genbadge coverage` fails with ModuleNotFoundError. Reads coverage XML:
+#     coverage run -m pytest && coverage xml
+#     genbadge coverage -i coverage.xml -o coverage.svg
+genbadge[coverage]==1.1.3
+
+# Verifying packaging metadata locally (python -m build), e.g. that the
+# environment markers in setup.cfg reach the built wheel intact.
+build==1.6.1
