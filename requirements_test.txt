@@ -1,0 +1,24 @@
+# Dependencies for running the test suite.
+#
+# Everything here must resolve on every interpreter in the support range,
+# 3.9 through 3.14, because tox installs this file into each matrix env.
+# Keep dev-only tooling in requirements_dev.txt -- tox, mypy and build have all
+# dropped 3.9, so they cannot live in this file.
+
+-r requirements.txt
+-e .
+
+# pytest 9 requires Python 3.10+, so 3.9 stays on the 8.4.x line.
+pytest==8.4.2; python_version == "3.9"
+pytest==9.1.1; python_version >= "3.10"
+pytest-order==1.5.0
+
+# 7.10.x is the only line shipping wheels for both cp39 and cp314. Outside it one
+# end of the range loses the C tracer and silently falls back to the much slower
+# pure-Python one ("Coverage.py ... without C extension").
+coverage==7.10.7
+
+# Pinned to a commit, as it tracks couchbase SDK internals rather than public API.
+# NOTE: this pin imports couchbase.logic.cluster, which 4.6.0 removed, so every
+# env on SDK >= 4.6 currently fails to collect. Bump once the port lands.
+fake-couchbase @ git+https://github.com/sitzz/python-fake-couchbase@fb32b5a2528a0d7d7be420c15451b84bc4c0f11d
