@@ -1,8 +1,10 @@
 import logging
 from typing import Protocol
 
-from couchbase.bucket import Collection, Scope
-from couchbase.cluster import Bucket, Cluster
+from couchbase.bucket import Bucket
+from couchbase.cluster import Cluster
+from couchbase.collection import Collection
+from couchbase.scope import Scope
 
 from .timeout import Timeout
 
