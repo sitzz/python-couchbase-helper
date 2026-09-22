@@ -1,0 +1,75 @@
+---
+
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py${{ matrix.python-version }} / ${{ matrix.sdk }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        # cblatest: newest SDK the interpreter allows, resolved via the markers
+        #           in requirements.txt.
+        # cbmin:    the minimum SDK declared for that interpreter.
+        sdk: [cblatest, cbmin]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install tox
+        run: |
+          python -m pip install --upgrade pip
+          pip install tox
+
+      # tox env names have no dot: 3.9 -> py39.
+      - name: Resolve tox env name
+        id: toxenv
+        run: |
+          echo "name=py$(echo '${{ matrix.python-version }}' | tr -d .)-${{ matrix.sdk }}" >> "$GITHUB_OUTPUT"
+
+      # Runs the identically-named env from tox.ini, so this job and a local
+      # `tox -e ...` invocation are the same thing.
+      - name: Run ${{ steps.toxenv.outputs.name }}
+        run: tox -e ${{ steps.toxenv.outputs.name }}
+        env:
+          PY_COLORS: "1"
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install tox
+      - run: tox -e lint
+
+  type:
+    name: type
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install tox
+      - run: tox -e type
