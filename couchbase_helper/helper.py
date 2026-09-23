@@ -74,7 +74,7 @@ class CouchbaseHelper:
 
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             self.session.collection.insert(**args)
@@ -122,7 +122,7 @@ class CouchbaseHelper:
         }
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             result = self.session.collection.insert_multi(**args)
@@ -169,7 +169,7 @@ class CouchbaseHelper:
 
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             self.session.collection.upsert(**args)
@@ -217,7 +217,7 @@ class CouchbaseHelper:
         }
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             result = self.session.collection.upsert_multi(**args)
@@ -264,7 +264,7 @@ class CouchbaseHelper:
 
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             self.session.collection.upsert(**args)
@@ -312,7 +312,7 @@ class CouchbaseHelper:
         }
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             result = self.session.collection.replace_multi(**args)
@@ -349,7 +349,7 @@ class CouchbaseHelper:
 
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             document = self.session.collection.get(**args)
@@ -383,7 +383,7 @@ class CouchbaseHelper:
         try:
             ret = []
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
             documents = self.session.collection.get_multi(**args).results
@@ -410,7 +410,7 @@ class CouchbaseHelper:
         args = {"key": key, "opts": build_opts("remove", opts=opts)}
 
         self.session.cluster.wait_until_ready(
-            timedelta(self.session.timeout.kv),
+            timedelta(seconds=self.session.timeout.kv),
             WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
         )
         try:
@@ -439,7 +439,7 @@ class CouchbaseHelper:
         args = {"keys": keys, "opts": build_opts("remove_multi", opts=opts)}
 
         self.session.cluster.wait_until_ready(
-            timedelta(self.session.timeout.kv),
+            timedelta(seconds=self.session.timeout.kv),
             WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
         )
         try:
@@ -484,7 +484,7 @@ class CouchbaseHelper:
         total_rows = 0
         try:
             self.session.cluster.wait_until_ready(
-                timedelta(self.session.timeout.kv),
+                timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.View]),
             )
             query = self.session.bucket.view_query(
