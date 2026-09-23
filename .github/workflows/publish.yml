@@ -29,6 +29,6 @@ jobs:
       - name: Build package
         run: python -m build
       - name: Publish package to pypi
-        uses: pypa/gh-action-pypi-publish@v1.9.0
+        uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           print-hash: true

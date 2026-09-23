@@ -73,3 +73,14 @@ jobs:
           python-version: "3.12"
       - run: pip install tox
       - run: tox -e type
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install tox
+      - run: tox -e package
