@@ -69,6 +69,7 @@ class Session(SessionProt):
         timeout: Optional[Union[Timeout, Tuple[int, int, int], int]] = None,
         wan: bool = False,
         logger: Optional[logging.Logger] = None,
+        enable_tracing: bool = False,
     ):
         # Initiate logger
         if logger is None:
@@ -110,8 +111,8 @@ class Session(SessionProt):
             ),
             enable_tls=tls,
             timeout_options=timeout_options,
-            enable_tracing=True,
-            show_queries=True,
+            enable_tracing=enable_tracing,
+            show_queries=enable_tracing,
         )
         if wan:
             self.options.apply_profile("wan_development")
