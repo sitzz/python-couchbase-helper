@@ -69,7 +69,7 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": build_opts("insert", opts=opts, expiry=expiry),
+            "opts": build_opts("insert", opts=opts, expiry=expiry, session=self.session),
         }
 
         try:
@@ -112,13 +112,13 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = build_opts("insert_multi", opts=val)
+                per_key_opts[key] = build_opts("insert_multi", opts=val, session=self.session)
 
             opts["per_key_options"] = per_key_opts
 
         args = {
             "keys_and_docs": documents,
-            "opts": build_opts("insert_multi", opts=opts, expiry=expiry),
+            "opts": build_opts("insert_multi", opts=opts, expiry=expiry, session=self.session),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -164,7 +164,7 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": build_opts("upsert", opts=opts, expiry=expiry),
+            "opts": build_opts("upsert", opts=opts, expiry=expiry, session=self.session),
         }
 
         try:
@@ -207,13 +207,13 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = build_opts("upsert", opts=val)
+                per_key_opts[key] = build_opts("upsert", opts=val, session=self.session)
 
             opts["per_key_options"] = per_key_opts
 
         args = {
             "keys_and_docs": documents,
-            "opts": build_opts("upsert_multi", opts=opts, expiry=expiry),
+            "opts": build_opts("upsert_multi", opts=opts, expiry=expiry, session=self.session),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -259,7 +259,7 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": build_opts("replace", opts=opts, expiry=expiry),
+            "opts": build_opts("replace", opts=opts, expiry=expiry, session=self.session),
         }
 
         try:
@@ -302,13 +302,13 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = build_opts("upsert", opts=val)
+                per_key_opts[key] = build_opts("upsert", opts=val, session=self.session)
 
             opts["per_key_options"] = per_key_opts
 
         args = {
             "keys_and_docs": documents,
-            "opts": build_opts("replace_multi", opts=opts, expiry=expiry),
+            "opts": build_opts("replace_multi", opts=opts, expiry=expiry, session=self.session),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -345,7 +345,7 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.GetResult` | Dict[Any, Any] | None
         """
-        args = {"key": key, "opts": build_opts("get", opts=opts)}
+        args = {"key": key, "opts": build_opts("get", opts=opts, session=self.session)}
 
         try:
             self.session.cluster.wait_until_ready(
@@ -378,7 +378,7 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.MultiGetResult` | List[Dict[Any, Any]] | None
         """
-        args = {"keys": keys, "opts": build_opts("get_multi", opts=opts)}
+        args = {"keys": keys, "opts": build_opts("get_multi", opts=opts, session=self.session)}
 
         try:
             ret = []
@@ -407,7 +407,7 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operation.
         """
-        args = {"key": key, "opts": build_opts("remove", opts=opts)}
+        args = {"key": key, "opts": build_opts("remove", opts=opts, session=self.session)}
 
         self.session.cluster.wait_until_ready(
             timedelta(seconds=self.session.timeout.kv),
@@ -436,7 +436,7 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operations.
         """
-        args = {"keys": keys, "opts": build_opts("remove_multi", opts=opts)}
+        args = {"keys": keys, "opts": build_opts("remove_multi", opts=opts, session=self.session)}
 
         self.session.cluster.wait_until_ready(
             timedelta(seconds=self.session.timeout.kv),
@@ -490,7 +490,7 @@ class CouchbaseHelper:
             query = self.session.bucket.view_query(
                 design_doc=design_doc,
                 view_name=view_name,
-                **build_opts("view", opts=opts),
+                **build_opts("view", opts=opts, session=self.session),
             )
             query_metadata = query.metadata()
             if query_metadata is not None:
