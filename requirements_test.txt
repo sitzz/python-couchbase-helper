@@ -21,4 +21,4 @@ coverage==7.10.7
 # Pinned to a commit, as it tracks couchbase SDK internals rather than public API.
 # NOTE: this pin imports couchbase.logic.cluster, which 4.6.0 removed, so every
 # env on SDK >= 4.6 currently fails to collect. Bump once the port lands.
-fake-couchbase @ git+https://github.com/sitzz/python-fake-couchbase@fb32b5a2528a0d7d7be420c15451b84bc4c0f11d
+fake-couchbase @ git+https://github.com/sitzz/python-fake-couchbase@d2b2facdd5a5d064ee25424f39df9d0705b68ec8
