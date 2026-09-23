@@ -16,7 +16,7 @@ from couchbase.options import (
     ViewOptions,
 )
 
-from .session import Session
+from .protocols import SessionProt
 from .timeout import Timeout
 
 _TIMEOUT = Timeout()
@@ -41,7 +41,7 @@ def build_opts(
     *,
     opts: Optional[Dict[str, Any]] = None,
     expiry: Optional[Union[int, timedelta]] = None,
-    session: Optional[Session] = None,
+    session: Optional[SessionProt] = None,
 ) -> Union[
     InsertOptions,
     InsertMultiOptions,
@@ -65,7 +65,7 @@ def build_opts(
             Optional options to use for initiating the operation options instance.
         expiry (int | timedelta | None):
             Optional general document expiry to use for the operations.
-        session (couchbase_helper.Session):
+        session (couchbase_helper.SessionProt):
             Optional session to fetch timeout settings from
 
     Returns:
