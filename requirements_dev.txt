@@ -35,3 +35,10 @@ genbadge[coverage]==1.1.3
 # Verifying packaging metadata locally (python -m build), e.g. that the
 # environment markers in setup.cfg reach the built wheel intact.
 build==1.6.1
+
+# Validates the built artifacts' metadata. Pinned to the version bundled by
+# pypa/gh-action-pypi-publish@v1.14.2, so `tox -e package` fails on exactly what
+# the release workflow would reject -- twine < 6.0.1 cannot read the
+# Metadata-Version 2.4 that setuptools >= 77 emits, and misreports it as
+# "Metadata is missing required fields: Name, Version".
+twine==7.0.0
