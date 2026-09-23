@@ -6,6 +6,7 @@ from couchbase.diagnostics import ServiceType
 from couchbase.exceptions import DocumentExistsException, DocumentNotFoundException
 from couchbase.options import (
     InsertOptions,
+    ReplaceOptions,
     UpsertOptions,
     WaitUntilReadyOptions,
 )
@@ -112,7 +113,7 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = build_opts("insert_multi", opts=val, session=self.session)
+                per_key_opts[key] = build_opts("insert", opts=val, session=self.session)
 
             opts["per_key_options"] = per_key_opts
 
@@ -133,7 +134,7 @@ class CouchbaseHelper:
                 self.logger.error("unable to add document %s: %s", key, exception)
         except Exception as _err:
             self.logger.error(
-                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+                "unhandled exception (%s): %s", type(_err).__name__, str(_err)
             )
 
         return False
@@ -228,7 +229,7 @@ class CouchbaseHelper:
                 self.logger.error("unable to add document %s: %s", key, exception)
         except Exception as _err:
             self.logger.error(
-                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+                "unhandled exception (%s): %s", type(_err).__name__, str(_err)
             )
 
         return False
@@ -267,7 +268,7 @@ class CouchbaseHelper:
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            self.session.collection.upsert(**args)
+            self.session.collection.replace(**args)
             return True
         except DocumentNotFoundException:
             return False
@@ -277,7 +278,7 @@ class CouchbaseHelper:
         documents: Dict[str, JSONType],
         expiry: Optional[Union[int, timedelta]] = None,
         opts: Optional[Dict[str, Any]] = None,
-        per_key_opts: Optional[Dict[str, UpsertOptions]] = None,
+        per_key_opts: Optional[Dict[str, ReplaceOptions]] = None,
     ) -> bool:
         """Update or insert multiple documents, for each key-value pair in the
         `documents` dictionary a document will be updated or created.
@@ -289,8 +290,8 @@ class CouchbaseHelper:
                 The expiry of the documents to save.
             opts (Dict[str, Any]):
                 The operation options to use when saving document.
-            per_key_opts (Dict[str, :class:`couchbase.options.UpsertOptions`]):
-                A dictionary of :class:`couchbase.options.UpsertOptions` per document key.
+            per_key_opts (Dict[str, :class:`couchbase.options.ReplaceOptions`]):
+                A dictionary of :class:`couchbase.options.ReplaceOptions` per document key.
 
         Returns:
             (bool):
@@ -302,7 +303,7 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = build_opts("upsert", opts=val, session=self.session)
+                per_key_opts[key] = build_opts("replace", opts=val, session=self.session)
 
             opts["per_key_options"] = per_key_opts
 
@@ -323,7 +324,7 @@ class CouchbaseHelper:
                 self.logger.error("unable to replace document %s: %s", key, exception)
         except Exception as _err:
             self.logger.error(
-                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+                "unhandled exception (%s): %s", type(_err).__name__, str(_err)
             )
 
         return False
@@ -452,7 +453,7 @@ class CouchbaseHelper:
                 self.logger.error("unable to remove document %s: %s", key, exception)
         except Exception as _err:
             self.logger.error(
-                "unhandled exception (%s): %s", type(_err).__name__, _err.args[0]
+                "unhandled exception (%s): %s", type(_err).__name__, str(_err)
             )
 
         return False
