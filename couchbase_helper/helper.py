@@ -70,7 +70,9 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": build_opts("insert", opts=opts, expiry=expiry, session=self.session),
+            "opts": build_opts(
+                "insert", opts=opts, expiry=expiry, session=self.session
+            ),
         }
 
         try:
@@ -119,7 +121,9 @@ class CouchbaseHelper:
 
         args = {
             "keys_and_docs": documents,
-            "opts": build_opts("insert_multi", opts=opts, expiry=expiry, session=self.session),
+            "opts": build_opts(
+                "insert_multi", opts=opts, expiry=expiry, session=self.session
+            ),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -165,7 +169,9 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": build_opts("upsert", opts=opts, expiry=expiry, session=self.session),
+            "opts": build_opts(
+                "upsert", opts=opts, expiry=expiry, session=self.session
+            ),
         }
 
         try:
@@ -214,7 +220,9 @@ class CouchbaseHelper:
 
         args = {
             "keys_and_docs": documents,
-            "opts": build_opts("upsert_multi", opts=opts, expiry=expiry, session=self.session),
+            "opts": build_opts(
+                "upsert_multi", opts=opts, expiry=expiry, session=self.session
+            ),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -260,7 +268,9 @@ class CouchbaseHelper:
         args = {
             "key": key,
             "value": value,
-            "opts": build_opts("replace", opts=opts, expiry=expiry, session=self.session),
+            "opts": build_opts(
+                "replace", opts=opts, expiry=expiry, session=self.session
+            ),
         }
 
         try:
@@ -303,13 +313,17 @@ class CouchbaseHelper:
 
         if per_key_opts is not None:
             for key, val in per_key_opts.items():
-                per_key_opts[key] = build_opts("replace", opts=val, session=self.session)
+                per_key_opts[key] = build_opts(
+                    "replace", opts=val, session=self.session
+                )
 
             opts["per_key_options"] = per_key_opts
 
         args = {
             "keys_and_docs": documents,
-            "opts": build_opts("replace_multi", opts=opts, expiry=expiry, session=self.session),
+            "opts": build_opts(
+                "replace_multi", opts=opts, expiry=expiry, session=self.session
+            ),
         }
         try:
             self.session.cluster.wait_until_ready(
@@ -379,7 +393,10 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.MultiGetResult` | List[Dict[Any, Any]] | None
         """
-        args = {"keys": keys, "opts": build_opts("get_multi", opts=opts, session=self.session)}
+        args = {
+            "keys": keys,
+            "opts": build_opts("get_multi", opts=opts, session=self.session),
+        }
 
         try:
             ret = []
@@ -408,7 +425,10 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operation.
         """
-        args = {"key": key, "opts": build_opts("remove", opts=opts, session=self.session)}
+        args = {
+            "key": key,
+            "opts": build_opts("remove", opts=opts, session=self.session),
+        }
 
         self.session.cluster.wait_until_ready(
             timedelta(seconds=self.session.timeout.kv),
@@ -437,7 +457,10 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operations.
         """
-        args = {"keys": keys, "opts": build_opts("remove_multi", opts=opts, session=self.session)}
+        args = {
+            "keys": keys,
+            "opts": build_opts("remove_multi", opts=opts, session=self.session),
+        }
 
         self.session.cluster.wait_until_ready(
             timedelta(seconds=self.session.timeout.kv),
