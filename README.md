@@ -4,7 +4,7 @@ couchbase-helper: A simple helper package for Couchbase operations
 [![pypi package](https://img.shields.io/pypi/v/couchbase-helper?color=%2334D058&label=pypi%20package)](https://pypi.org/project/couchbase-helper/)
 [![downloads](https://img.shields.io/pypi/dm/couchbase-helper)](https://pypi.org/project/couchbase-helper/)
 [![versions](https://img.shields.io/pypi/pyversions/couchbase-helper.svg?color=%2334D058)](https://pypi.org/project/couchbase-helper/)
-![Tests coverage](./coverage.svg)
+![Tests coverage](https://raw.githubusercontent.com/sitzz/python-couchbase-helper/main/coverage.svg)
 [![licence](https://img.shields.io/pypi/l/couchbase-helper)](./LICENSE)
 
 --------------------
