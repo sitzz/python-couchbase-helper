@@ -1,167 +1,267 @@
-import json
+"""CouchbaseHelper driven through stubs rather than a cluster.
+
+Calls the stub collection records are checked against the real SDK with
+`sdk_options`, which is what catches options the SDK would silently ignore.
+"""
+
 import logging
-from typing import Protocol, runtime_checkable
 
 import pytest
-from couchbase_helper.protocols import SessionProt
-from couchbase_helper import Timeout
+from couchbase.exceptions import DocumentExistsException, DocumentNotFoundException
+from couchbase.options import InsertOptions, ReplaceOptions, UpsertOptions
 
-from .couchbase_session import cb_instance, session
-from .helpers import get_item, get_items
+from couchbase_helper import CouchbaseHelper
 
-
-# Hack for checking if session complies
-@runtime_checkable
-class SessionProtExt(SessionProt, Protocol):
-    pass
-
-
-##################################################
-# Test initiation and connection operations      #
-##################################################
-@pytest.mark.order(1)
-def test_init():
-    # Check session implements SessionProt
-    assert isinstance(session, SessionProtExt)
-
-    # Check session creates a logger instance
-    assert isinstance(session.logger, logging.Logger)
-
-    # Check session set's a default timeout
-    _timeout = Timeout()
-    assert isinstance(session.timeout, Timeout)
-    assert session.timeout.connection == _timeout.connection
-    assert session.timeout.kv == _timeout.kv
-    assert session.timeout.query == _timeout.query
-
-    # Check no connection was attempted/created
-    assert not session.connected
+from .stubs import (
+    StubBucket,
+    StubCollection,
+    StubDocument,
+    StubMultiResult,
+    StubSession,
+    named_logger,
+    sdk_options,
+)
 
 
-@pytest.mark.order(2)
-def test_connect():
-    session.connect()
-    assert session.connected
+def _helper(**responses):
+    return CouchbaseHelper(StubSession(collection=StubCollection(**responses)))
+
+
+def _calls(helper):
+    return helper.session.collection.calls
 
 
 ##################################################
-# Test inserts and update operations             #
+# __init__                                       #
 ##################################################
-def test_insert():
-    key, document = get_item()
-    assert cb_instance().insert(key, document)
+def test_init_explicit_logger_is_deprecated(caplog):
+    logger = named_logger("explicit")
+    with caplog.at_level(logging.WARNING, logger=logger.name):
+        helper = CouchbaseHelper(StubSession(), logger=logger)
+    assert helper.logger is logger
+    assert "deprecated" in caplog.text
 
 
-def test_insert_duplicate():
-    key, document = get_item()
-    assert not cb_instance().insert(key, document)
+def test_init_uses_session_logger():
+    logger = named_logger("session")
+    assert CouchbaseHelper(StubSession(logger=logger)).logger is logger
 
 
-def test_insert_multi():
-    documents_raw = get_items(100)
-    documents = {key: document for key, document in documents_raw}
-    assert cb_instance().insert_multi(documents)
+def test_init_falls_back_to_root_logger():
+    assert CouchbaseHelper(StubSession()).logger is logging.getLogger()
 
 
-def test_upsert_existing():
-    key, document = get_item()
-    assert cb_instance().upsert(key, document)
+def test_init_connects_session():
+    session = StubSession(connected=False)
+    CouchbaseHelper(session)
+    assert session.connect_calls == 1
 
 
-def test_upsert():
-    key, document = get_item("second")
-    assert cb_instance().upsert(key, document)
-
-
-def test_upsert_multi():
-    documents_raw = get_items(100)
-    documents = {key: document for key, document in documents_raw}
-    assert cb_instance().upsert_multi(documents)
-
-
-def test_replace():
-    key, document = get_item("second")
-    document["replaced"] = True
-    assert cb_instance().replace(key, document)
-    new_document = cb_instance().get(key)
-    assert new_document.get("replaced", False)
-
-
-def test_replace_multi():
-    documents = {}
-    for key, document in get_items(100):
-        documents[key] = document
-        documents[key]["replaced"] = True
-    assert cb_instance().replace_multi(documents)
-    new_documents = cb_instance().get_multi(list(documents.keys()))
-    for new_document in new_documents:
-        assert new_document.get("replaced", False)
-
-
-@pytest.mark.order(after="test_insert")
-def test_update():
-    key, document = get_item()
-    document["update"] = True
-    assert cb_instance().upsert(key, document)
+def test_init_leaves_connected_session_alone():
+    session = StubSession()
+    CouchbaseHelper(session)
+    assert session.connect_calls == 0
 
 
 ##################################################
-# Test get and get_multi operations              #
+# Single-document operations                     #
 ##################################################
-def test_get():
-    key, document = get_item("get_test")
-    cb_instance().insert(key, document)
-    document_fetched = cb_instance().get(key)
-
-    assert json.dumps(document) == json.dumps(document_fetched)
-    assert cb_instance().remove(key)
-
-
-def test_get_not_found():
-    key, _ = get_item("get_not_found_test")
-    assert not cb_instance().get(key)
+@pytest.mark.parametrize("op", ["insert", "upsert", "replace"])
+def test_mutation_succeeds(op):
+    helper = _helper()
+    assert getattr(helper, op)("k", {"a": 1})
+    ((called, args, kwargs),) = _calls(helper)
+    assert called == op
 
 
-def test_get_multi():
-    documents_raw = get_items(100, "get_multi_test")
-    documents = {key: document for key, document in documents_raw}
-    cb_instance().insert_multi(documents)
+def test_remove_succeeds():
+    assert _helper().remove("k")
 
-    keys = [key for key, _ in documents_raw]
-    documents_fetched = cb_instance().get_multi(keys, raw=True)
-    assert len(documents) == len(documents_fetched)
-    assert all(doc.key in keys for doc in documents_fetched)
-    assert cb_instance().remove_multi(keys)
+
+def test_insert_existing_returns_false():
+    assert not _helper(insert=DocumentExistsException()).insert("k", {})
+
+
+def test_upsert_not_found_returns_false():
+    assert not _helper(upsert=DocumentNotFoundException()).upsert("k", {})
+
+
+def test_replace_not_found_returns_false():
+    assert not _helper(replace=DocumentNotFoundException()).replace("k", {})
+
+
+def test_get_returns_content_or_raw():
+    document = StubDocument({"a": 1})
+    helper = _helper(get=document)
+    assert helper.get("k") == {"a": 1}
+    assert helper.get("k", raw=True) is document
+
+
+def test_get_not_found_returns_none():
+    assert _helper(get=DocumentNotFoundException()).get("k") is None
+
+
+def test_get_multi_returns_contents():
+    result = StubMultiResult(results={"a": StubDocument({"a": 1})})
+    assert _helper(get_multi=result).get_multi(["a"]) == [{"a": 1}]
+
+
+def test_get_multi_not_found_returns_none():
+    assert _helper(get_multi=DocumentNotFoundException()).get_multi(["k"]) is None
+
+
+def test_remove_not_found_returns_false():
+    assert not _helper(remove=DocumentNotFoundException()).remove("k")
+
+
+def test_delete_aliases_remove():
+    helper = _helper()
+    assert helper.delete("k")
+    assert _calls(helper)[0][0] == "remove"
 
 
 ##################################################
-# Test remove and remove_multi operations        #
+# Options reach the SDK                          #
 ##################################################
-@pytest.mark.order(after="test_insert")
-def test_remove():
-    key, document = get_item()
-    assert cb_instance().remove(key, document)
+_OK_RESPONSES = {
+    "get": StubDocument({}),
+    "get_multi": StubMultiResult(),
+    "insert_multi": StubMultiResult(),
+    "upsert_multi": StubMultiResult(),
+    "replace_multi": StubMultiResult(),
+    "remove_multi": StubMultiResult(),
+}
 
 
-@pytest.mark.order(after="test_upsert")
-def test_remove_second():
-    key, document = get_item("second")
-    assert cb_instance().remove(key, document)
+@pytest.mark.parametrize(
+    ("op", "call", "has_expiry"),
+    [
+        ("insert", lambda h: h.insert("k", {}, expiry=10), True),
+        ("upsert", lambda h: h.upsert("k", {}, expiry=10), True),
+        ("replace", lambda h: h.replace("k", {}, expiry=10), True),
+        ("insert_multi", lambda h: h.insert_multi({"k": {}}, expiry=10), True),
+        ("upsert_multi", lambda h: h.upsert_multi({"k": {}}, expiry=10), True),
+        ("replace_multi", lambda h: h.replace_multi({"k": {}}, expiry=10), True),
+        ("get", lambda h: h.get("k"), False),
+        ("get_multi", lambda h: h.get_multi(["k"]), False),
+        ("remove", lambda h: h.remove("k"), False),
+        ("remove_multi", lambda h: h.remove_multi(["k"]), False),
+    ],
+)
+def test_options_are_applied_by_sdk(op, call, has_expiry):
+    """Regression: options were passed as opts=..., which the SDK takes as a single
+    unknown option, so timeout, expiry and per-key options never applied."""
+    helper = _helper(**_OK_RESPONSES)
+    call(helper)
+
+    ((called, args, kwargs),) = _calls(helper)
+    applied = sdk_options(called, args, kwargs)
+
+    assert called == op
+    assert "timeout" in applied
+    if has_expiry:
+        assert applied["expiry"] == 10
 
 
-@pytest.mark.order(after="test_remove")
-def test_remove_not_found():
-    key, document = get_item()
-    assert not cb_instance().remove(key, document)
+##################################################
+# Multi-document operations                      #
+##################################################
+_MULTI_OPS = [
+    ("insert_multi", InsertOptions),
+    ("upsert_multi", UpsertOptions),
+    ("replace_multi", ReplaceOptions),
+]
 
 
-@pytest.mark.order(after="test_insert_multi")
-def test_remove_multi():
-    keys = [key for key, _ in get_items(100)]
-    assert cb_instance().remove_multi(keys)
+@pytest.mark.parametrize(("op", "per_key_type"), _MULTI_OPS)
+def test_multi_per_key_options(op, per_key_type):
+    helper = _helper(**{op: StubMultiResult()})
+
+    assert getattr(helper, op)({"a": {}}, per_key_opts={"a": {"expiry": None}})
+
+    ((_, args, kwargs),) = _calls(helper)
+    per_key = sdk_options(op, args, kwargs)["per_key_options"]
+    assert isinstance(per_key["a"], per_key_type)
+    assert "timeout" in per_key["a"]
 
 
-@pytest.mark.order(after="test_remove_multi")
-def test_remove_multi_not_found():
-    keys = [key for key, _ in get_items(100)]
-    assert not cb_instance().remove_multi(keys)
+@pytest.mark.parametrize(("op", "_"), _MULTI_OPS)
+def test_multi_partial_failure_logs_each_key(op, _, caplog):
+    result = StubMultiResult(all_ok=False, exceptions={"a": "boom-a", "b": "boom-b"})
+    helper = _helper(**{op: result})
+
+    with caplog.at_level(logging.ERROR):
+        assert not getattr(helper, op)({"a": {}, "b": {}})
+
+    assert "boom-a" in caplog.text
+    assert "boom-b" in caplog.text
+
+
+@pytest.mark.parametrize(("op", "_"), _MULTI_OPS)
+def test_multi_unexpected_exception_is_logged(op, _, caplog):
+    helper = _helper(**{op: RuntimeError("kaboom")})
+
+    with caplog.at_level(logging.ERROR):
+        assert not getattr(helper, op)({"a": {}})
+
+    assert "RuntimeError" in caplog.text
+
+
+def test_remove_multi_partial_failure(caplog):
+    result = StubMultiResult(all_ok=False, exceptions={"a": "boom-a"})
+    with caplog.at_level(logging.ERROR):
+        assert not _helper(remove_multi=result).remove_multi(["a"])
+    assert "boom-a" in caplog.text
+
+
+def test_remove_multi_unexpected_exception(caplog):
+    with caplog.at_level(logging.ERROR):
+        assert not _helper(remove_multi=RuntimeError("x")).remove_multi(["a"])
+    assert "RuntimeError" in caplog.text
+
+
+def test_delete_multi_aliases_remove_multi():
+    helper = _helper(remove_multi=StubMultiResult())
+    assert helper.delete_multi(["a"])
+    assert _calls(helper)[0][0] == "remove_multi"
+
+
+##################################################
+# view_query                                     #
+##################################################
+class _ViewResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def rows(self):
+        return self._rows
+
+
+def _view_helper(view):
+    return CouchbaseHelper(StubSession(bucket=StubBucket(view=view)))
+
+
+def test_view_query_passes_limit_and_skip():
+    helper = _view_helper(_ViewResult(["r"]))
+    helper.view_query("ddoc", "view", limit=5, skip=2)
+
+    (kwargs,) = helper.session.bucket.view_calls
+    assert (kwargs["design_doc"], kwargs["view_name"]) == ("ddoc", "view")
+    assert (kwargs["limit"], kwargs["skip"]) == (5, 2)
+
+
+def test_view_query_returns_rows():
+    assert _view_helper(_ViewResult(["r"])).view_query("d", "v") == ["r"]
+
+
+def test_view_query_error_is_logged(caplog):
+    with caplog.at_level(logging.ERROR):
+        assert _view_helper(RuntimeError("view broke")).view_query("d", "v") is None
+    assert "view broke" in caplog.text
+
+
+def test_view_query_error_without_args_is_logged(caplog):
+    """Regression: the handler read _exc.args[0] and raised IndexError itself."""
+    with caplog.at_level(logging.ERROR):
+        assert _view_helper(RuntimeError()).view_query("d", "v") is None
+    assert "RuntimeError" in caplog.text

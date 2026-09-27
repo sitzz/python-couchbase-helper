@@ -83,3 +83,24 @@ def test_create_collection_legacy_api(monkeypatch):
     (spec,), _ = manager.calls[0]
     assert spec.name == "mycoll"
     assert spec.scope_name == "myscope"
+
+
+def _raise_not_found(_name):
+    from importlib.metadata import PackageNotFoundError
+
+    raise PackageNotFoundError(_name)
+
+
+def test_sdk_version_falls_back_to_version_module():
+    """No installed distribution metadata -> read `couchbase._version`."""
+    fake_version = mock.Mock(__version__="4.3.2")
+    with mock.patch("importlib.metadata.version", side_effect=_raise_not_found):
+        with mock.patch.dict("sys.modules", {"couchbase._version": fake_version}):
+            assert _compat._sdk_version() == (4, 3, 2)
+
+
+def test_sdk_version_unknown_when_all_sources_fail():
+    # A None entry in sys.modules makes the import raise ImportError.
+    with mock.patch("importlib.metadata.version", side_effect=_raise_not_found):
+        with mock.patch.dict("sys.modules", {"couchbase._version": None}):
+            assert _compat._sdk_version() == ()
