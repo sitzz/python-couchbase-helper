@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from couchbase.n1ql import N1QLQuery, QueryScanConsistency
+from couchbase.n1ql import QueryScanConsistency
 from couchbase.options import QueryOptions
 from couchbase.result import QueryResult
 
@@ -11,6 +11,16 @@ from .session import Session
 from .timeout import Timeout
 
 _TIMEOUT = Timeout()
+
+_KEY_PATTERN = re.compile(
+    r"^\s*(?P<column>.*?)\s*(?P<operator>"
+    r"(?<=\s)(?:is\s+not\s+null|is\s+null|not\s+like|like)"
+    r"|<=|>=|!=|<>|==|=|<|>"
+    r")?\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
+_NULL_OPERATORS = ("IS NULL", "IS NOT NULL")
+_NO_VALUE = object()
 
 
 class N1ql:
@@ -128,9 +138,12 @@ class N1ql:
 
         Args:
             key (str):
-                The key (and optionally operator) to add to the condition expression.
+                The key (and optionally operator) to add to the condition expression,
+                e.g. "age>=". Supported operators are =, ==, !=, <>, <, <=, >, >=,
+                LIKE, NOT LIKE, IS NULL and IS NOT NULL. Without an operator the
+                condition is "=", or "IS NULL" when `value` is None.
             value (Any):
-                The value to compare with.
+                The value to compare with. Ignored for IS NULL and IS NOT NULL.
 
         Returns:
              `self`
@@ -164,17 +177,20 @@ class N1ql:
 
     def _where(self, type_: str, key: str, value: Any):
         """adds and/or where conditions"""
-        cleaned_key = self._clean_key(key)
-        column = self._enclose_reserved_word(cleaned_key)
-        operator = None
-        if value is None and not self._has_operator(key):
-            operator = " IS NULL"
-        if not self._has_operator(key) or not operator:
-            operator = " ="
+        match = _KEY_PATTERN.match(key)
+        assert match is not None  # every group is optional, so any string matches
+        column_raw, operator = match.group("column"), match.group("operator")
+        column = self._enclose_reserved_word(self._clean_key(column_raw))
 
-        processed_key = f"{column}{operator}"
+        if operator is None:
+            operator = "IS NULL" if value is None else "="
+        operator = " ".join(operator.upper().split())
 
-        self._conditions.append((type_, processed_key, value))
+        # null checks take no parameter
+        if operator in _NULL_OPERATORS:
+            value = _NO_VALUE
+
+        self._conditions.append((type_, f"{column} {operator}", value))
 
     def limit(self, limit: int):
         """
@@ -250,10 +266,12 @@ class N1ql:
         positional_arguments = []
         where = ""
         if self._conditions:
-            for idx, condition in enumerate(self._conditions, 1):
-                type_, key, value = condition
-                positional_arguments.append(value)
-                _where_part = f"{type_.upper() if len(where) else ''} {prefix}{key} ${idx}".strip()
+            for type_, key, value in self._conditions:
+                param = ""
+                if value is not _NO_VALUE:
+                    positional_arguments.append(value)
+                    param = f" ${len(positional_arguments)}"
+                _where_part = f"{type_.upper() if len(where) else ''} {prefix}{key}{param}".strip()
                 where += f"{_where_part} "
             where = f"WHERE {where}"
 
@@ -298,24 +316,18 @@ class N1ql:
         # init QueryOptions
         if opts is None:
             opts = {}
-        options = build_opts("query", opts=opts)
+        if consistency is not None:
+            opts["scan_consistency"] = consistency
+        options = build_opts("query", opts=opts, session=self.session)
 
         try:
-            # Initiate the N1QLQuery instance
-            query = N1QLQuery(statement)
-            if consistency is not None:
-                query.consistency = consistency
-            query.timeout = self.session.timeout.query
-            return self.session.cluster.query(query.statement, **options)
+            return self.session.cluster.query(statement, **options)
         except Exception as _err:  # intentionally broad initially to see what exceptions are actually raised
-            print(f"SQL++ exception happened ({type(_err).__name__}): {_err}")
+            self.logger.error(
+                "SQL++ exception happened (%s): %s", type(_err).__name__, str(_err)
+            )
 
         return None
-
-    @staticmethod
-    def _has_operator(string: str):
-        """determine if a column/key has an operator"""
-        return len(re.findall(r"(\s|<|>|!|=|is null|is not null)", string)) > 0
 
     @staticmethod
     def _clean_key(string):

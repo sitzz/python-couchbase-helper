@@ -505,7 +505,6 @@ class CouchbaseHelper:
         if skip is not None:
             opts["skip"] = skip
 
-        total_rows = 0
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
@@ -516,16 +515,12 @@ class CouchbaseHelper:
                 view_name=view_name,
                 **build_opts("view", opts=opts, session=self.session),
             )
-            query_metadata = query.metadata()
-            if query_metadata is not None:
-                total_rows = query_metadata.total_rows()
-            if query_metadata is None or (skip is not None and total_rows < skip):
-                return query.rows()
+            return query.rows()
         except Exception as _exc:
             self.logger.error(
                 "CouchBase view query error (%s): %s",
                 type(_exc).__name__,
-                str(_exc.args[0]),
+                str(_exc),
             )
 
         return None
