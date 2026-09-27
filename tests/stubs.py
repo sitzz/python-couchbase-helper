@@ -1,16 +1,18 @@
 """Minimal stand-ins for the Couchbase SDK objects the package talks to.
 
 These let tests drive every branch (failures, partial results, exceptions)
-without a cluster and without `fake_couchbase`, so the modules using them run
-on every interpreter and SDK in the matrix.
+without a cluster, on every interpreter and SDK in the matrix.
 
 Any response configured as an exception instance is raised instead of returned.
 """
 
+import inspect
 import logging
 from types import SimpleNamespace
 
+from couchbase.collection import Collection
 from couchbase.diagnostics import PingState
+from couchbase.options import forward_args
 
 from couchbase_helper import Timeout
 
@@ -45,6 +47,20 @@ class RecordingBucketManager:
         _respond(self.raises)
 
 
+def sdk_options(op, args, kwargs):
+    """The options the real SDK would apply for a recorded Collection call.
+
+    Binds the call to the real method signature (so a missing or misnamed
+    required argument fails here) and then merges options exactly as the SDK's
+    request builders do. Every Collection method takes `*opts, **kwargs`, so
+    this is the only way to tell whether options would actually take effect.
+    """
+    bound = inspect.signature(getattr(Collection, op)).bind(None, *args, **kwargs)
+    return forward_args(
+        bound.arguments.get("kwargs", {}), *bound.arguments.get("opts", ())
+    )
+
+
 class StubCollection:
     """Records every operation; `responses` maps operation name to its result."""
 
@@ -57,8 +73,8 @@ class StubCollection:
         if op.startswith("_"):
             raise AttributeError(op)
 
-        def call(**kwargs):
-            self.calls.append((op, kwargs))
+        def call(*args, **kwargs):
+            self.calls.append((op, args, kwargs))
             return _respond(self.responses.get(op))
 
         return call
@@ -140,7 +156,11 @@ class StubDocument:
 
 
 class StubSession:
-    """Satisfies what CouchbaseHelper and N1ql need from a session."""
+    """Satisfies what CouchbaseHelper and N1ql need from a session.
+
+    Like Session, the bucket/scope/collection setters take a name; stub objects
+    are accepted too, so tests can inject configured ones.
+    """
 
     def __init__(self, *, connected=True, logger=None, collection=None, bucket=None):
         self.logger = logger
@@ -151,6 +171,30 @@ class StubSession:
         self.bucket = bucket or StubBucket()
         self.scope = StubScope()
         self.collection = collection or StubCollection()
+
+    @property
+    def bucket(self):
+        return self._bucket
+
+    @bucket.setter
+    def bucket(self, value):
+        self._bucket = StubBucket(value) if isinstance(value, str) else value
+
+    @property
+    def scope(self):
+        return self._scope
+
+    @scope.setter
+    def scope(self, value):
+        self._scope = StubScope(value) if isinstance(value, str) else value
+
+    @property
+    def collection(self):
+        return self._collection
+
+    @collection.setter
+    def collection(self, value):
+        self._collection = StubCollection(value) if isinstance(value, str) else value
 
     @property
     def connected(self):

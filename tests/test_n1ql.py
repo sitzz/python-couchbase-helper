@@ -1,7 +1,7 @@
 """N1ql query building checked against the exact SQL++ sent to the cluster.
 
-Each test gets a fresh N1ql over a stub session, so unlike test_n1ql.py nothing
-here depends on test order or on fake_couchbase.
+Each test gets a fresh N1ql over a stub session, so nothing here depends on
+test order.
 """
 
 from datetime import timedelta
@@ -71,9 +71,23 @@ def test_init_connects_session():
 ##################################################
 # Builder methods                                #
 ##################################################
+def test_select_defaults_to_star(n1ql):
+    assert n1ql._columns == ["*"]
+
+
+@pytest.mark.parametrize("columns", ["kings, queens", ["kings", "queens"]])
+def test_select_string_or_list(n1ql, columns):
+    assert n1ql.select(columns)._columns == ["kings", "queens"]
+
+
 def test_select_none_resets_to_star(n1ql):
     n1ql.select("a").select(None)
     assert n1ql._columns == ["*"]
+
+
+def test_distinct_toggle(n1ql):
+    assert n1ql.distinct()._distinct
+    assert not n1ql.distinct(False)._distinct
 
 
 def test_orwhere_aliases_or_where(n1ql):
@@ -81,8 +95,52 @@ def test_orwhere_aliases_or_where(n1ql):
     assert n1ql._conditions == [("AND", "a =", 1), ("OR", "b =", 2)]
 
 
+@pytest.mark.parametrize("method", ["limit", "offset"])
+def test_limit_and_offset_accept_numeric_strings(n1ql, method):
+    getattr(n1ql, method)("11")
+    assert getattr(n1ql, f"_{method}") == 11
+
+
+@pytest.mark.parametrize("method", ["limit", "offset"])
+def test_limit_and_offset_ignore_invalid_values(n1ql, method):
+    getattr(n1ql, method)(10)
+    getattr(n1ql, method)("invalid-string")
+    assert getattr(n1ql, f"_{method}") == 10
+
+
 def test_skip_aliases_offset(n1ql):
     assert n1ql.skip(7)._offset == 7
+
+
+##################################################
+# from_                                          #
+##################################################
+def _keyspace(session):
+    return (session.bucket.name, session.scope.name, session.collection.name)
+
+
+@pytest.mark.parametrize(
+    "keyspace",
+    [("other",), ("other", "inventory"), ("other", "inventory", "items")],
+)
+def test_from_switches_keyspace(n1ql, session, keyspace):
+    n1ql.from_(*keyspace)
+    expected = keyspace + ("_default",) * (3 - len(keyspace))
+    assert _keyspace(session) == expected
+
+
+def test_from_same_keyspace_changes_nothing(n1ql, session):
+    n1ql.from_("test", "_default", "_default")
+    assert n1ql._session_reset == {}
+
+
+def test_from_is_undone_after_rows(n1ql, session):
+    n1ql.from_("other", "inventory", "items").rows()
+
+    statement, _ = _sent(n1ql)
+    assert statement == "SELECT * FROM other.inventory.items o"
+    assert _keyspace(session) == ("test", "_default", "_default")
+    assert n1ql._session_reset == {}
 
 
 @pytest.mark.parametrize(

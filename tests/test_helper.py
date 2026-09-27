@@ -1,8 +1,7 @@
-"""CouchbaseHelper failure paths, driven through stubs rather than a cluster.
+"""CouchbaseHelper driven through stubs rather than a cluster.
 
-test_helper.py covers the happy paths end-to-end against fake_couchbase; this
-module covers what the fake cannot easily produce: partial failures, SDK
-exceptions and view queries.
+Calls the stub collection records are checked against the real SDK with
+`sdk_options`, which is what catches options the SDK would silently ignore.
 """
 
 import logging
@@ -20,6 +19,7 @@ from .stubs import (
     StubMultiResult,
     StubSession,
     named_logger,
+    sdk_options,
 )
 
 
@@ -66,14 +66,16 @@ def test_init_leaves_connected_session_alone():
 ##################################################
 # Single-document operations                     #
 ##################################################
-def test_insert_passes_expiry_and_options():
+@pytest.mark.parametrize("op", ["insert", "upsert", "replace"])
+def test_mutation_succeeds(op):
     helper = _helper()
-    assert helper.insert("k", {"a": 1}, expiry=10)
-    ((op, kwargs),) = _calls(helper)
-    assert op == "insert"
-    assert (kwargs["key"], kwargs["value"]) == ("k", {"a": 1})
-    assert isinstance(kwargs["opts"], InsertOptions)
-    assert kwargs["opts"]["expiry"].total_seconds() == 10
+    assert getattr(helper, op)("k", {"a": 1})
+    ((called, args, kwargs),) = _calls(helper)
+    assert called == op
+
+
+def test_remove_succeeds():
+    assert _helper().remove("k")
 
 
 def test_insert_existing_returns_false():
@@ -119,6 +121,54 @@ def test_delete_aliases_remove():
 
 
 ##################################################
+# Options reach the SDK                          #
+##################################################
+_OPTIONS_IGNORED = pytest.mark.xfail(
+    strict=True,
+    reason="bug: options are passed as opts=..., which the SDK takes as one unknown "
+    "option named 'opts', so timeout, expiry and per-key options never apply",
+)
+
+_OK_RESPONSES = {
+    "get": StubDocument({}),
+    "get_multi": StubMultiResult(),
+    "insert_multi": StubMultiResult(),
+    "upsert_multi": StubMultiResult(),
+    "replace_multi": StubMultiResult(),
+    "remove_multi": StubMultiResult(),
+}
+
+
+@_OPTIONS_IGNORED
+@pytest.mark.parametrize(
+    ("op", "call", "has_expiry"),
+    [
+        ("insert", lambda h: h.insert("k", {}, expiry=10), True),
+        ("upsert", lambda h: h.upsert("k", {}, expiry=10), True),
+        ("replace", lambda h: h.replace("k", {}, expiry=10), True),
+        ("insert_multi", lambda h: h.insert_multi({"k": {}}, expiry=10), True),
+        ("upsert_multi", lambda h: h.upsert_multi({"k": {}}, expiry=10), True),
+        ("replace_multi", lambda h: h.replace_multi({"k": {}}, expiry=10), True),
+        ("get", lambda h: h.get("k"), False),
+        ("get_multi", lambda h: h.get_multi(["k"]), False),
+        ("remove", lambda h: h.remove("k"), False),
+        ("remove_multi", lambda h: h.remove_multi(["k"]), False),
+    ],
+)
+def test_options_are_applied_by_sdk(op, call, has_expiry):
+    helper = _helper(**_OK_RESPONSES)
+    call(helper)
+
+    ((called, args, kwargs),) = _calls(helper)
+    applied = sdk_options(called, args, kwargs)
+
+    assert called == op
+    assert "timeout" in applied
+    if has_expiry:
+        assert applied["expiry"] == 10
+
+
+##################################################
 # Multi-document operations                      #
 ##################################################
 _MULTI_OPS = [
@@ -128,14 +178,15 @@ _MULTI_OPS = [
 ]
 
 
+@_OPTIONS_IGNORED
 @pytest.mark.parametrize(("op", "per_key_type"), _MULTI_OPS)
 def test_multi_per_key_options(op, per_key_type):
     helper = _helper(**{op: StubMultiResult()})
 
     assert getattr(helper, op)({"a": {}}, per_key_opts={"a": {"expiry": None}})
 
-    ((_, kwargs),) = _calls(helper)
-    per_key = kwargs["opts"]["per_key_options"]
+    ((_, args, kwargs),) = _calls(helper)
+    per_key = sdk_options(op, args, kwargs)["per_key_options"]
     assert isinstance(per_key["a"], per_key_type)
     assert "timeout" in per_key["a"]
 

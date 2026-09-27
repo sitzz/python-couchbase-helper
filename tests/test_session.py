@@ -1,8 +1,4 @@
-"""Session semantics that are easy to regress and cheap to pin down.
-
-Like test_compat.py, this module avoids importing `fake_couchbase`, so it keeps
-running on every interpreter regardless of the fake's state.
-"""
+"""Session semantics that are easy to regress and cheap to pin down."""
 
 from typing import Protocol, runtime_checkable
 
