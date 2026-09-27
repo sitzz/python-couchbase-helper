@@ -123,12 +123,6 @@ def test_delete_aliases_remove():
 ##################################################
 # Options reach the SDK                          #
 ##################################################
-_OPTIONS_IGNORED = pytest.mark.xfail(
-    strict=True,
-    reason="bug: options are passed as opts=..., which the SDK takes as one unknown "
-    "option named 'opts', so timeout, expiry and per-key options never apply",
-)
-
 _OK_RESPONSES = {
     "get": StubDocument({}),
     "get_multi": StubMultiResult(),
@@ -139,7 +133,6 @@ _OK_RESPONSES = {
 }
 
 
-@_OPTIONS_IGNORED
 @pytest.mark.parametrize(
     ("op", "call", "has_expiry"),
     [
@@ -156,6 +149,8 @@ _OK_RESPONSES = {
     ],
 )
 def test_options_are_applied_by_sdk(op, call, has_expiry):
+    """Regression: options were passed as opts=..., which the SDK takes as a single
+    unknown option, so timeout, expiry and per-key options never applied."""
     helper = _helper(**_OK_RESPONSES)
     call(helper)
 
@@ -178,7 +173,6 @@ _MULTI_OPS = [
 ]
 
 
-@_OPTIONS_IGNORED
 @pytest.mark.parametrize(("op", "per_key_type"), _MULTI_OPS)
 def test_multi_per_key_options(op, per_key_type):
     helper = _helper(**{op: StubMultiResult()})
