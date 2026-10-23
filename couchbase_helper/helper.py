@@ -67,20 +67,16 @@ class CouchbaseHelper:
             (bool):
                 The status of the insert operation.
         """
-        args = {
-            "key": key,
-            "value": value,
-            "opts": build_opts(
-                "insert", opts=opts, expiry=expiry, session=self.session
-            ),
-        }
+        opts = build_opts(
+            "insert", opts=opts, expiry=expiry, session=self.session
+        )
 
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            self.session.collection.insert(**args)
+            self.session.collection.insert(key, value, **opts)
             return True
         except DocumentExistsException:
             return False
@@ -119,18 +115,15 @@ class CouchbaseHelper:
 
             opts["per_key_options"] = per_key_opts
 
-        args = {
-            "keys_and_docs": documents,
-            "opts": build_opts(
-                "insert_multi", opts=opts, expiry=expiry, session=self.session
-            ),
-        }
+        opts = build_opts(
+            "insert_multi", opts=opts, expiry=expiry, session=self.session
+        )
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            result = self.session.collection.insert_multi(**args)
+            result = self.session.collection.insert_multi(keys_and_docs=documents, **opts)
             if result.all_ok:
                 return True
 
@@ -166,20 +159,16 @@ class CouchbaseHelper:
             (bool):
                 The status of the insert operation.
         """
-        args = {
-            "key": key,
-            "value": value,
-            "opts": build_opts(
-                "upsert", opts=opts, expiry=expiry, session=self.session
-            ),
-        }
+        opts = build_opts(
+            "upsert", opts=opts, expiry=expiry, session=self.session
+        )
 
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            self.session.collection.upsert(**args)
+            self.session.collection.upsert(key, value, **opts)
             return True
         except DocumentNotFoundException:
             return False
@@ -218,18 +207,15 @@ class CouchbaseHelper:
 
             opts["per_key_options"] = per_key_opts
 
-        args = {
-            "keys_and_docs": documents,
-            "opts": build_opts(
-                "upsert_multi", opts=opts, expiry=expiry, session=self.session
-            ),
-        }
+        opts = build_opts(
+            "upsert_multi", opts=opts, expiry=expiry, session=self.session
+        )
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            result = self.session.collection.upsert_multi(**args)
+            result = self.session.collection.upsert_multi(keys_and_docs=documents, **opts)
             if result.all_ok:
                 return True
 
@@ -265,20 +251,16 @@ class CouchbaseHelper:
             (bool):
                 The status of the insert operation.
         """
-        args = {
-            "key": key,
-            "value": value,
-            "opts": build_opts(
-                "replace", opts=opts, expiry=expiry, session=self.session
-            ),
-        }
+        opts = build_opts(
+            "replace", opts=opts, expiry=expiry, session=self.session
+        )
 
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            self.session.collection.replace(**args)
+            self.session.collection.replace(key, value, **opts)
             return True
         except DocumentNotFoundException:
             return False
@@ -319,18 +301,15 @@ class CouchbaseHelper:
 
             opts["per_key_options"] = per_key_opts
 
-        args = {
-            "keys_and_docs": documents,
-            "opts": build_opts(
-                "replace_multi", opts=opts, expiry=expiry, session=self.session
-            ),
-        }
+        opts = build_opts(
+            "replace_multi", opts=opts, expiry=expiry, session=self.session
+        )
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            result = self.session.collection.replace_multi(**args)
+            result = self.session.collection.replace_multi(keys_and_docs=documents, **opts)
             if result.all_ok:
                 return True
 
@@ -360,14 +339,14 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.GetResult` | Dict[Any, Any] | None
         """
-        args = {"key": key, "opts": build_opts("get", opts=opts, session=self.session)}
+        opts = build_opts("get", opts=opts, session=self.session)
 
         try:
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            document = self.session.collection.get(**args)
+            document = self.session.collection.get(key, **opts)
             return document if raw else document.content_as[dict]
         except DocumentNotFoundException:
             return None
@@ -393,18 +372,16 @@ class CouchbaseHelper:
         Returns:
             :class:`couchbase.result.MultiGetResult` | List[Dict[Any, Any]] | None
         """
-        args = {
-            "keys": keys,
-            "opts": build_opts("get_multi", opts=opts, session=self.session),
-        }
-
+        opts = build_opts(
+            "get_multi", opts=opts, session=self.session
+        )
         try:
             ret = []
             self.session.cluster.wait_until_ready(
                 timedelta(seconds=self.session.timeout.kv),
                 WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
             )
-            documents = self.session.collection.get_multi(**args).results
+            documents = self.session.collection.get_multi(keys, **opts).results
             for _, document in documents.items():
                 ret.append(document if raw else document.content_as[dict])
 
@@ -425,17 +402,16 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operation.
         """
-        args = {
-            "key": key,
-            "opts": build_opts("remove", opts=opts, session=self.session),
-        }
+        opts = build_opts(
+            "remove", opts=opts, session=self.session
+        )
 
         self.session.cluster.wait_until_ready(
             timedelta(seconds=self.session.timeout.kv),
             WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
         )
         try:
-            self.session.collection.remove(**args)
+            self.session.collection.remove(key, **opts)
             return True
         except DocumentNotFoundException:
             pass
@@ -457,17 +433,16 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operations.
         """
-        args = {
-            "keys": keys,
-            "opts": build_opts("remove_multi", opts=opts, session=self.session),
-        }
+        args = build_opts(
+            "remove_multi", opts=opts, session=self.session
+        )
 
         self.session.cluster.wait_until_ready(
             timedelta(seconds=self.session.timeout.kv),
             WaitUntilReadyOptions(service_types=[ServiceType.KeyValue]),
         )
         try:
-            result = self.session.collection.remove_multi(**args)
+            result = self.session.collection.remove_multi(keys, **opts)
 
             if result.all_ok:
                 return True
