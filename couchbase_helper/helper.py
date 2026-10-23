@@ -433,7 +433,7 @@ class CouchbaseHelper:
             (bool):
                 The status of the remove operations.
         """
-        args = build_opts(
+        opts = build_opts(
             "remove_multi", opts=opts, session=self.session
         )
 
